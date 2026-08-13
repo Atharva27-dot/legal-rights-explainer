@@ -1,0 +1,43 @@
+"""
+ollama_service.py
+
+Optimized Ollama Service
+"""
+
+from ollama import chat
+
+
+class OllamaService:
+
+    def __init__(self, model="llama3.2:3b"):
+
+        self.model = model
+
+    def generate(self, prompt: str):
+
+        response = chat(
+
+            model=self.model,
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+
+            options={
+
+                "temperature": 0.0,
+
+                "top_p": 0.9,
+
+                "num_predict": 220,
+
+                "num_ctx": 4096
+
+            }
+
+        )
+
+        return response["message"]["content"]
