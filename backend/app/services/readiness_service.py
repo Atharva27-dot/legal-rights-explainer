@@ -1,117 +1,169 @@
-import re
-
-
 class ReadinessService:
 
     def __init__(self):
 
-        self.evidence_keywords = [
+        self.evidence_groups = {
+            "Purchase / Payment Proof": [
+                "invoice",
+                "receipt",
+                "bill",
+                "purchase proof",
+                "order confirmation",
+                "order id",
+                "order number",
+                "payment proof",
+                "payment receipt"
+            ],
 
-            "invoice",
-            "receipt",
-            "bill",
-            "photo",
-            "photos",
-            "image",
-            "images",
-            "email",
-            "mail",
-            "chat",
-            "whatsapp",
-            "call",
-            "recording",
-            "warranty",
-            "guarantee"
+            "Visual Evidence": [
+                "photo",
+                "photos",
+                "photograph",
+                "photographs",
+                "image",
+                "images",
+                "screenshot",
+                "screenshots",
+                "video",
+                "unboxing video"
+            ],
 
-        ]
+            "Communication Evidence": [
+                "email",
+                "mail",
+                "chat",
+                "chats",
+                "whatsapp",
+                "message",
+                "messages",
+                "call",
+                "recording",
+                "call recording"
+            ],
 
-    # =====================================
-    # Calculate Readiness Score
-    # =====================================
+            "Warranty / Policy Documents": [
+                "warranty",
+                "guarantee",
+                "warranty card",
+                "policy",
+                "policy document"
+            ],
+
+            "Agreement / Contract": [
+                "agreement",
+                "contract"
+            ],
+
+            "Transaction Evidence": [
+                "bank statement",
+                "transaction",
+                "transaction id",
+                "transaction number"
+            ],
+
+            "Complaint / Reference": [
+                "complaint",
+                "grievance",
+                "ticket",
+                "reference number"
+            ]
+        }
+
+    # ============================================================
+    # DETECT EVIDENCE
+    # ============================================================
+
+    def _detect_evidence(self, complaint):
+
+        text = " ".join([
+            str(getattr(complaint, "problem", "")),
+            str(getattr(complaint, "remedy", ""))
+        ]).lower()
+
+        detected = []
+        missing = []
+
+        for group, keywords in self.evidence_groups.items():
+
+            found = any(
+                keyword.lower() in text
+                for keyword in keywords
+            )
+
+            if found:
+                detected.append(group)
+            else:
+                missing.append(group)
+
+        return detected, missing
+
+    # ============================================================
+    # CALCULATE READINESS
+    # ============================================================
 
     def calculate(self, complaint):
 
         score = 0
-
         recommendations = []
 
-        # -----------------------------
-        # Name
-        # -----------------------------
+        # --------------------------------------------------------
+        # BASIC INFORMATION
+        # --------------------------------------------------------
 
-        if complaint.name.strip():
-
+        if str(getattr(complaint, "name", "")).strip():
             score += 10
-
         else:
-
             recommendations.append(
                 "Provide your full name."
             )
 
-        # -----------------------------
-        # City
-        # -----------------------------
-
-        if complaint.city.strip():
-
+        if str(getattr(complaint, "city", "")).strip():
             score += 5
-
         else:
-
             recommendations.append(
                 "Mention your city."
             )
 
-        # -----------------------------
-        # Product
-        # -----------------------------
-
-        if complaint.product.strip():
-
+        if str(getattr(complaint, "product", "")).strip():
             score += 10
-
         else:
-
             recommendations.append(
                 "Specify the product or service."
             )
 
-        # -----------------------------
-        # Seller
-        # -----------------------------
-
-        if complaint.seller.strip():
-
+        if str(getattr(complaint, "seller", "")).strip():
             score += 15
-
         else:
-
             recommendations.append(
-                "Mention the seller's name."
+                "Mention the seller or service provider."
             )
 
-        # -----------------------------
-        # Purchase Date
-        # -----------------------------
+        if getattr(complaint, "purchase_date", None):
+            score += 10
+        else:
+            recommendations.append(
+                "Provide the purchase or transaction date."
+            )
 
-        if complaint.purchase_date:
+        # --------------------------------------------------------
+        # PROBLEM DESCRIPTION
+        # --------------------------------------------------------
+
+        problem_text = str(
+            getattr(complaint, "problem", "")
+        ).strip()
+
+        if len(problem_text) >= 50:
+
+            score += 20
+
+        elif len(problem_text) >= 25:
 
             score += 10
 
-        else:
-
             recommendations.append(
-                "Provide the purchase date."
+                "Describe the problem in more detail, including what happened and when."
             )
-
-        # -----------------------------
-        # Problem
-        # -----------------------------
-
-        if len(complaint.problem.strip()) >= 50:
-
-            score += 20
 
         else:
 
@@ -119,11 +171,11 @@ class ReadinessService:
                 "Describe the problem in more detail."
             )
 
-        # -----------------------------
-        # Remedy
-        # -----------------------------
+        # --------------------------------------------------------
+        # DESIRED REMEDY
+        # --------------------------------------------------------
 
-        if complaint.remedy:
+        if getattr(complaint, "remedy", None):
 
             score += 10
 
@@ -133,35 +185,85 @@ class ReadinessService:
                 "Choose a desired remedy."
             )
 
-        # -----------------------------
-        # Evidence Detection
-        # -----------------------------
+        # --------------------------------------------------------
+        # EVIDENCE
+        # --------------------------------------------------------
 
-        problem = complaint.problem.lower()
-
-        evidence_found = any(
-
-            keyword in problem
-
-            for keyword in self.evidence_keywords
-
+        detected_evidence, missing_evidence = (
+            self._detect_evidence(complaint)
         )
 
-        if evidence_found:
+        if detected_evidence:
 
-            score += 20
+            evidence_score = min(
+                20,
+                len(detected_evidence) * 5
+            )
+
+            score += evidence_score
 
         else:
 
             recommendations.append(
-
-                "Mention evidence such as invoice, receipt, photographs, emails or chats."
-
+                "Add supporting evidence such as an invoice, "
+                "receipt, photographs, screenshots, emails or chats."
             )
 
-        # =====================================
-        # Classification
-        # =====================================
+        # --------------------------------------------------------
+        # EVIDENCE GAP RECOMMENDATIONS
+        # --------------------------------------------------------
+
+        if "Purchase / Payment Proof" in missing_evidence:
+
+            recommendations.append(
+                "Keep your invoice, receipt, order confirmation or payment proof."
+            )
+
+        if "Visual Evidence" in missing_evidence:
+
+            recommendations.append(
+                "Keep photographs, screenshots or videos showing the problem."
+            )
+
+        if "Communication Evidence" in missing_evidence:
+
+            recommendations.append(
+                "Preserve emails, WhatsApp chats, messages or call records with the seller."
+            )
+
+        if "Warranty / Policy Documents" in missing_evidence:
+
+            recommendations.append(
+                "Keep the applicable warranty card or policy document."
+            )
+
+        if "Agreement / Contract" in missing_evidence:
+
+            recommendations.append(
+                "Keep the relevant agreement or contract if one exists."
+            )
+
+        if "Transaction Evidence" in missing_evidence:
+
+            recommendations.append(
+                "Keep bank statements or transaction records where relevant."
+            )
+
+        if "Complaint / Reference" in missing_evidence:
+
+            recommendations.append(
+                "Keep previous complaint, grievance or support ticket reference numbers."
+            )
+
+        # --------------------------------------------------------
+        # LIMIT SCORE
+        # --------------------------------------------------------
+
+        score = min(100, score)
+
+        # --------------------------------------------------------
+        # READINESS STATUS
+        # --------------------------------------------------------
 
         if score >= 90:
 
@@ -179,15 +281,40 @@ class ReadinessService:
 
             status = "Weak Case"
 
-        return {
+        # --------------------------------------------------------
+        # REMOVE DUPLICATES
+        # --------------------------------------------------------
 
+        unique_recommendations = []
+
+        for recommendation in recommendations:
+
+            if recommendation not in unique_recommendations:
+
+                unique_recommendations.append(
+                    recommendation
+                )
+
+        # --------------------------------------------------------
+        # RETURN RESULT
+        # --------------------------------------------------------
+
+        return {
             "score": score,
 
             "status": status,
 
-            "recommendations": recommendations
+            "recommendations": unique_recommendations,
 
+            "evidence": {
+                "detected": detected_evidence,
+                "missing": missing_evidence
+            }
         }
 
+
+# ================================================================
+# GLOBAL SERVICE INSTANCE
+# ================================================================
 
 readiness_service = ReadinessService()
