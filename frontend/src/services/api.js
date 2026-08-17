@@ -11,10 +11,20 @@ const API = axios.create({
    Legal Assistant
 ===================================== */
 
-export const askQuestion = async (question) => {
-  const response = await API.post("/ask", {
-    question,
-  });
+export const askQuestion = async (
+  question,
+  domain = null,
+  issueType = null
+) => {
+
+  const response = await API.post(
+    "/ask",
+    {
+      question,
+      domain,
+      issue_type: issueType,
+    }
+  );
 
   return response.data;
 };

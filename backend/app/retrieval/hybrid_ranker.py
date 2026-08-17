@@ -1,12 +1,12 @@
 """
-Domain-aware Hybrid Legal Ranker.
+Issue-Aware Hybrid Legal Ranker
 
-Ranking:
-
-0.50 * Semantic Score
-0.25 * Keyword Score
-0.15 * Metadata Score
-0.10 * Domain Score
+Ranking combines:
+1. Semantic similarity
+2. Keyword matching
+3. Metadata relevance
+4. Legal-domain relevance
+5. Explicit legal-issue relevance
 """
 
 from app.retrieval.keyword_extractor import KeywordExtractor
@@ -16,13 +16,28 @@ from app.retrieval.intent_detector import IntentDetector
 class HybridRanker:
 
     def __init__(self):
+        self.keyword_extractor = KeywordExtractor()
+        self.intent_detector = IntentDetector()
 
-        self.keyword_extractor = (
-            KeywordExtractor()
-        )
+    # ============================================================
+    # NORMALIZE
+    # ============================================================
 
-        self.intent_detector = (
-            IntentDetector()
+    def _normalize(self, text):
+
+        if not text:
+            return ""
+
+        return (
+            str(text)
+            .lower()
+            .replace("-", " ")
+            .replace("/", " ")
+            .replace(",", " ")
+            .replace(".", " ")
+            .replace("–", " ")
+            .replace("—", " ")
+            .strip()
         )
 
     # ============================================================
@@ -37,64 +52,58 @@ class HybridRanker:
 
         score = 0.0
 
-        section = metadata.get(
-            "section",
-            ""
+        section = str(
+            metadata.get(
+                "section",
+                ""
+            )
         )
 
-        chapter = metadata.get(
-            "chapter",
-            ""
+        chapter = str(
+            metadata.get(
+                "chapter",
+                ""
+            )
         )
 
-        title = metadata.get(
-            "title",
-            ""
-        ).lower()
+        title = self._normalize(
+            metadata.get(
+                "title",
+                ""
+            )
+        )
 
         if intent == "definition":
 
             if chapter == "CHAPTER I":
-
                 score += 0.20
 
-            if section.startswith(
-                "Section 2"
-            ):
-
+            if section.startswith("Section 2"):
                 score += 0.40
 
             if "definition" in title:
-
                 score += 0.20
 
             if (
                 "unless the context otherwise requires"
                 in title
             ):
-
                 score += 0.20
 
         elif intent == "complaint":
 
             if "complaint" in title:
-
                 score += 0.40
 
             if "district commission" in title:
-
                 score += 0.20
 
         elif intent == "appeal":
 
             if "appeal" in title:
-
                 score += 0.50
 
-        return min(
-            score,
-            1.0
-        )
+        return min(score, 1.0)
 
     # ============================================================
     # DOMAIN SCORE
@@ -107,76 +116,296 @@ class HybridRanker:
     ):
 
         if not requested_domain:
-
             return 0.0
 
-        document_domain = str(
+        document_domain = self._normalize(
             metadata.get(
                 "domain",
                 ""
             )
-        ).lower()
+        )
 
-        requested_domain = str(
+        requested_domain = self._normalize(
             requested_domain
-        ).lower()
+        )
 
-        # Exact match
         if document_domain == requested_domain:
-
             return 1.0
 
-        # Flexible matching
         domain_groups = {
 
-            "consumer goods": [
+            "consumer protection": [
                 "consumer",
                 "consumer protection"
             ],
 
-            "consumer service": [
-                "consumer",
-                "consumer protection"
-            ],
-
-            "cyber / online fraud": [
+            "cyber it": [
                 "cyber",
-                "cyber / it"
+                "cyber it"
             ],
 
-            "insurance / financial service": [
-                "insurance",
-                "financial",
-                "banking"
+            "employment labour": [
+                "employment",
+                "labour",
+                "labor"
             ],
 
-            "motor vehicle / road accident": [
+            "contract service": [
+                "contract"
+            ],
+
+            "motor vehicle road accident": [
                 "motor",
                 "motor vehicle"
             ],
 
-            "employment / labour": [
-                "employment",
-                "labour"
-            ],
-
-            "contract / service dispute": [
-                "contract"
+            "insurance financial": [
+                "insurance",
+                "financial",
+                "banking"
             ]
         }
 
-        accepted_domains = domain_groups.get(
-            requested_domain,
-            []
-        )
+        accepted_domains = []
+
+        for key, values in domain_groups.items():
+
+            if (
+                key in requested_domain
+                or
+                requested_domain in key
+            ):
+
+                accepted_domains = values
+                break
 
         for accepted in accepted_domains:
 
             if accepted in document_domain:
-
                 return 1.0
 
         return 0.0
+
+    # ============================================================
+    # ISSUE → SECTION HINTS
+    # ============================================================
+
+    ISSUE_SECTION_HINTS = {
+
+        "consumer definition": {
+            "section 2(7)": 1.0
+        },
+
+        "filing complaint": {
+            "section 35": 1.0,
+            "section 36": 0.30,
+            "section 38": 0.30
+        },
+
+        "mediation": {
+            "section 2(25)": 1.0,
+            "section 79": 1.0,
+            "section 80": 0.80,
+            "section 74": 0.60,
+            "section 75": 0.50
+        },
+
+        "consumer rights": {
+            "section 2": 0.60,
+            "section 17": 1.0
+        },
+
+        "defective product": {
+            "section 39": 1.0,
+            "section 2(10)": 0.90,
+            "section 84": 0.70,
+            "section 85": 0.70,
+            "section 86": 0.70,
+            "section 83": 0.60,
+            "section 82": 0.50
+        },
+
+        "upi fraud": {
+            "section 43": 1.0,
+            "section 66c": 0.50,
+            "section 66d": 0.50
+        },
+
+        "unauthorized access": {
+            "section 43": 1.0,
+            "section 65": 0.40
+        },
+
+        "identity theft": {
+            "section 66c": 1.0
+        },
+
+        "online payment fraud": {
+            "section 43": 1.0,
+            "section 66c": 0.80,
+            "section 66d": 0.80
+        }
+    }
+
+    # ============================================================
+    # LEGAL ISSUE SCORE
+    # ============================================================
+
+    def calculate_legal_issue_score(
+        self,
+        issue_type,
+        metadata,
+        document
+    ):
+
+        if not issue_type:
+            return 0.0
+
+        issue_key = self._normalize(
+            issue_type
+        )
+
+        section = self._normalize(
+            metadata.get(
+                "section",
+                ""
+            )
+        )
+
+        title = self._normalize(
+            metadata.get(
+                "title",
+                ""
+            )
+        )
+
+        document_text = self._normalize(
+            document
+        )
+
+        searchable_text = (
+            title
+            + " "
+            + section
+            + " "
+            + document_text
+        )
+
+        score = 0.0
+
+        # ========================================================
+        # SECTION HINT
+        # ========================================================
+
+        section_hints = (
+            self.ISSUE_SECTION_HINTS.get(
+                issue_key,
+                {}
+            )
+        )
+
+        normalized_section_hints = {
+
+            self._normalize(key):
+                value
+
+            for key, value
+            in section_hints.items()
+
+        }
+
+        section_hint = (
+            normalized_section_hints.get(
+                section,
+                0.0
+            )
+        )
+
+        if section_hint > 0:
+
+            score += (
+                0.70
+                *
+                section_hint
+            )
+
+        # ========================================================
+        # ISSUE KEYWORD MATCH
+        # ========================================================
+
+        issue_keywords = (
+            self.keyword_extractor
+            .get_issue_keywords(
+                issue_type
+            )
+        )
+
+        if issue_keywords:
+
+            matched = 0
+
+            for keyword in issue_keywords:
+
+                normalized_keyword = (
+                    self._normalize(
+                        keyword
+                    )
+                )
+
+                if (
+                    normalized_keyword
+                    in searchable_text
+                ):
+
+                    matched += 1
+
+            keyword_ratio = (
+                matched
+                /
+                len(issue_keywords)
+            )
+
+            score += (
+                0.30
+                *
+                keyword_ratio
+            )
+
+        # ========================================================
+        # TITLE MATCH
+        # ========================================================
+
+        title_matches = 0
+
+        for keyword in issue_keywords:
+
+            normalized_keyword = (
+                self._normalize(
+                    keyword
+                )
+            )
+
+            if (
+                normalized_keyword
+                in title
+            ):
+
+                title_matches += 1
+
+        if title_matches > 0:
+
+            score += min(
+                0.20,
+                title_matches * 0.05
+            )
+
+        return max(
+            0.0,
+            min(
+                score,
+                1.0
+            )
+        )
 
     # ============================================================
     # RANK
@@ -186,12 +415,15 @@ class HybridRanker:
         self,
         query,
         results,
-        requested_domain=None
+        requested_domain=None,
+        issue_type=None
     ):
 
         keywords = (
             self.keyword_extractor.extract(
-                query
+                query=query,
+                domain=requested_domain,
+                issue_type=issue_type
             )
         )
 
@@ -203,17 +435,20 @@ class HybridRanker:
 
         ranked_results = []
 
-        documents = (
-            results["documents"][0]
-        )
+        documents = results.get(
+            "documents",
+            [[]]
+        )[0]
 
-        metadatas = (
-            results["metadatas"][0]
-        )
+        metadatas = results.get(
+            "metadatas",
+            [[]]
+        )[0]
 
-        distances = (
-            results["distances"][0]
-        )
+        distances = results.get(
+            "distances",
+            [[]]
+        )[0]
 
         for doc, metadata, distance in zip(
             documents,
@@ -221,17 +456,23 @@ class HybridRanker:
             distances
         ):
 
-            # ----------------------------------------------------
-            # Semantic Score
-            # ----------------------------------------------------
+            # ====================================================
+            # SEMANTIC SCORE
+            # ====================================================
 
             semantic_score = (
-                1 / (1 + distance)
+                1
+                /
+                (
+                    1
+                    +
+                    distance
+                )
             )
 
-            # ----------------------------------------------------
-            # Keyword Score
-            # ----------------------------------------------------
+            # ====================================================
+            # KEYWORD SCORE
+            # ====================================================
 
             doc_lower = doc.lower()
 
@@ -241,24 +482,23 @@ class HybridRanker:
 
                 for word in keywords
 
-                if word.lower() in doc_lower
+                if word.lower()
+                in doc_lower
 
             )
 
             keyword_score = (
-
                 keyword_matches
                 /
                 max(
                     len(keywords),
                     1
                 )
-
             )
 
-            # ----------------------------------------------------
-            # Metadata Score
-            # ----------------------------------------------------
+            # ====================================================
+            # METADATA SCORE
+            # ====================================================
 
             metadata_score = (
                 self.calculate_metadata_score(
@@ -267,9 +507,9 @@ class HybridRanker:
                 )
             )
 
-            # ----------------------------------------------------
-            # Domain Score
-            # ----------------------------------------------------
+            # ====================================================
+            # DOMAIN SCORE
+            # ====================================================
 
             domain_score = (
                 self.calculate_domain_score(
@@ -278,33 +518,61 @@ class HybridRanker:
                 )
             )
 
-            # ----------------------------------------------------
-            # Final Score
-            # ----------------------------------------------------
+            # ====================================================
+            # LEGAL ISSUE SCORE
+            # ====================================================
+
+            legal_issue_score = (
+                self.calculate_legal_issue_score(
+                    issue_type,
+                    metadata,
+                    doc
+                )
+            )
+
+            # ====================================================
+            # FINAL SCORE
+            # ====================================================
 
             final_score = (
 
-                (0.50 * semantic_score)
+                0.45
+                *
+                semantic_score
 
                 +
 
-                (0.25 * keyword_score)
+                0.15
+                *
+                keyword_score
 
                 +
 
-                (0.15 * metadata_score)
+                0.10
+                *
+                metadata_score
 
                 +
 
-                (0.10 * domain_score)
+                0.10
+                *
+                domain_score
+
+                +
+
+                0.20
+                *
+                legal_issue_score
 
             )
 
             ranked_results.append({
 
-                "document": doc,
+                "document":
+                    doc,
 
-                "metadata": metadata,
+                "metadata":
+                    metadata,
 
                 "semantic_score":
                     round(
@@ -330,21 +598,27 @@ class HybridRanker:
                         3
                     ),
 
+                "legal_issue_score":
+                    round(
+                        legal_issue_score,
+                        3
+                    ),
+
                 "final_score":
                     round(
                         final_score,
                         3
                     )
-
             })
 
+        # ========================================================
+        # SORT
+        # ========================================================
+
         ranked_results.sort(
-
-            key=lambda x:
-                x["final_score"],
-
+            key=lambda item:
+                item["final_score"],
             reverse=True
-
         )
 
         return ranked_results

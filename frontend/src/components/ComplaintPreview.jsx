@@ -5,6 +5,7 @@ import {
   FaSave,
   FaCheckCircle,
 } from "react-icons/fa";
+import SourceCard from "./SourceCard";
 import toast from "react-hot-toast";
 
 import {
@@ -231,6 +232,11 @@ export default function ComplaintPreview({ caseData }) {
         </div>
 
       </div>
+            {/* Legal Sources */}
+
+      <SourceCard
+        sources={report.sources}
+      />
 
       {/* Case ID */}
 

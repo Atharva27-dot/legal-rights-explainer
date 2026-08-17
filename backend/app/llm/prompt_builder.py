@@ -1,25 +1,33 @@
-"""
-prompt_builder.py
-
-Creates structured prompts for Ollama.
-"""
-
-
 class PromptBuilder:
 
-    def build(self, question, retrieved_results):
+    def build(
+        self,
+        question,
+        retrieved_results,
+        domain=None,
+        issue_type=None
+    ):
 
         context = ""
 
+        # ========================================================
+        # BUILD RETRIEVED LEGAL CONTEXT
+        # ========================================================
+
         for item in retrieved_results:
 
-            metadata = item["metadata"]
+            metadata = item.get(
+                "metadata",
+                {}
+            )
 
             context += f"""
 ======================================================
-
 ACT:
 {metadata.get("act", "Unknown")}
+
+DOMAIN:
+{metadata.get("domain", "Unknown")}
 
 CHAPTER:
 {metadata.get("chapter", "Unknown")}
@@ -31,69 +39,133 @@ TITLE:
 {metadata.get("title", "Unknown")}
 
 CONTENT:
-
-{item["document"]}
-
+{item.get("document", "")}
+======================================================
 """
 
+        # ========================================================
+        # DOMAIN INFORMATION
+        # ========================================================
+
+        domain_text = (
+            domain
+            if domain
+            else
+            "Not specified"
+        )
+
+        issue_text = (
+            issue_type
+            if issue_type
+            else
+            "Not specified"
+        )
+
+        # ========================================================
+        # GROUNDED PROMPT
+        # ========================================================
+
         prompt = f"""
-You are an AI Legal Rights Assistant for Indian citizens.
 
-You MUST answer ONLY using the LEGAL CONTEXT below.
+You are an AI Legal Rights Explainer for Indian citizens.
 
-==========================
-STRICT RULES
-==========================
+Your job is to explain the retrieved legal documents in
+simple language.
 
-1. Use ONLY the legal context provided.
+============================================================
+SELECTED LEGAL DOMAIN
+============================================================
 
-2. DO NOT use your own legal knowledge.
+{domain_text}
 
-3. DO NOT invent examples.
+============================================================
+SELECTED LEGAL ISSUE
+============================================================
 
-4. DO NOT add assumptions.
+{issue_text}
 
-5. DO NOT interpret the law.
+============================================================
+STRICT GROUNDING RULES
+============================================================
 
-6. DO NOT explain anything that is NOT explicitly written in the legal context.
+1. Use ONLY the retrieved LEGAL CONTEXT.
 
-7. DO NOT mention any Act or Section that is not present in the context.
+2. Do NOT use outside legal knowledge.
 
-8. If the answer is not found, reply exactly:
+3. Do NOT invent laws, Acts, sections, penalties,
+   procedures or authorities.
+
+4. Do NOT mention an Act or Section unless it appears
+   in the retrieved context.
+
+5. Do NOT claim that a particular provision definitely
+   applies to the citizen's case.
+
+6. Use cautious language such as:
+   "may be relevant",
+   "the retrieved provision states",
+   or
+   "based on the available document".
+
+7. Clearly separate what the document says from
+   what the citizen has reported.
+
+8. If the retrieved context does not contain enough
+   information to answer the question, say:
 
 "I couldn't find sufficient information in the uploaded legal documents."
 
-9. Keep the explanation under 150 words.
+9. Do not fabricate missing facts.
 
-10. DO NOT mention confidence.
+10. Keep the response understandable to a normal Indian citizen.
 
-11. DO NOT mention legal citations.
+11. Keep the explanation reasonably concise.
 
-The backend will provide citations separately.
+12. Do not provide a fabricated legal conclusion.
 
-==========================
-LEGAL CONTEXT
-==========================
+============================================================
+RETRIEVED LEGAL CONTEXT
+============================================================
 
 {context}
 
-==========================
-QUESTION
-==========================
+============================================================
+CITIZEN QUESTION
+============================================================
 
 {question}
 
-==========================
-OUTPUT FORMAT
-==========================
+============================================================
+RESPONSE FORMAT
+============================================================
 
-## Plain Language Explanation
+### Plain Language Explanation
 
-Summarize ONLY what is explicitly stated in the legal context.
+Explain the relevant information from the retrieved
+legal documents in simple language.
 
-## What the citizen should do
+### Relevant Legal Provision
 
-Give practical next steps based ONLY on the legal context.
+Mention the Act, section and title ONLY if they are
+present in the retrieved context.
 
+Explain what the retrieved provision actually states.
+
+### Why It May Be Relevant
+
+Explain the connection between the citizen's question
+and the retrieved provision without making a definitive
+legal determination.
+
+### What the Citizen Can Do
+
+Give only practical steps that are supported by the
+retrieved legal context.
+
+### Important Note
+
+This explanation is informational and is not a substitute
+for professional legal advice.
 """
+
         return prompt

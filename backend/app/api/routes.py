@@ -22,9 +22,9 @@ def health():
 
         "model": "Ollama",
 
-        "retriever": "Hybrid Retrieval",
+        "retriever": "Domain + Issue Aware Hybrid Retrieval",
 
-        "version": "1.0"
+        "version": "2.0"
 
     }
 
@@ -33,10 +33,20 @@ def health():
     "/ask",
     response_model=AnswerResponse
 )
-def ask(request: QuestionRequest):
+def ask(
+    request: QuestionRequest
+):
 
     result = assistant.ask(
-        request.question
+
+        question=request.question,
+
+        domain=request.domain,
+
+        issue_type=request.issue_type
+
     )
 
-    return AnswerResponse(**result)
+    return AnswerResponse(
+        **result
+    )

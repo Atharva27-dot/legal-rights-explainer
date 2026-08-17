@@ -1,122 +1,119 @@
-import {
-  FaBookOpen,
-  FaBalanceScale,
-  FaGavel,
-  FaFolderOpen,
-} from "react-icons/fa";
+import { FaBookOpen, FaChartBar } from "react-icons/fa";
 
 export default function SourceCard({ sources }) {
-  if (!sources || sources.length === 0) return null;
+
+  if (!sources || sources.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
 
-      {/* Header */}
+    <div className="bg-white rounded-xl shadow-lg mt-8 p-8">
 
-      <div className="bg-gradient-to-r from-emerald-700 to-teal-600 px-8 py-5">
+      <div className="flex items-center gap-3 mb-6">
 
-        <div className="flex items-center gap-3">
+        <FaBookOpen className="text-blue-800 text-2xl" />
 
-          <FaBookOpen className="text-white text-2xl" />
-
-          <div>
-
-            <h2 className="text-white text-2xl font-bold">
-              Legal Sources
-            </h2>
-
-            <p className="text-emerald-100 text-sm">
-              Retrieved legal provisions used to generate this answer
-            </p>
-
-          </div>
-
-        </div>
+        <h2 className="text-2xl font-bold">
+          Legal Sources
+        </h2>
 
       </div>
 
-      {/* Sources */}
-
-      <div className="p-8 space-y-5">
+      <div className="grid gap-5">
 
         {sources.map((source, index) => (
 
           <div
             key={index}
-            className="rounded-2xl border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 p-6 shadow-sm"
+            className="border-l-4 border-blue-800 bg-slate-50 rounded-lg p-5"
           >
 
-            {/* Act */}
+            {/* ================================= */}
+            {/* SOURCE INFORMATION */}
+            {/* ================================= */}
 
-            <div className="flex items-center gap-3 mb-4">
+            <h3 className="font-bold text-lg text-blue-900">
+              {source.act || "Legal Act"}
+            </h3>
 
-              <FaBalanceScale className="text-blue-800 text-xl" />
+            <p className="mt-2">
 
-              <h3 className="text-lg font-bold text-slate-800">
-                {source.act}
-              </h3>
+              <strong>Domain:</strong>{" "}
 
-            </div>
+              {source.domain || "General Legal"}
 
-            <div className="grid md:grid-cols-3 gap-4">
+            </p>
 
-              {/* Chapter */}
+            <p>
 
-              <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <strong>Chapter:</strong>{" "}
 
-                <div className="flex items-center gap-2 mb-2">
+              {source.chapter || "Not available"}
 
-                  <FaFolderOpen className="text-indigo-700" />
+            </p>
 
-                  <span className="font-semibold">
-                    Chapter
-                  </span>
+            <p>
 
-                </div>
+              <strong>Section:</strong>{" "}
 
-                <p className="text-slate-700">
-                  {source.chapter || "Not Available"}
-                </p>
+              {source.section || "Not available"}
+
+            </p>
+
+            <p>
+
+              <strong>Title:</strong>{" "}
+
+              {source.title || "Not available"}
+
+            </p>
+
+            {/* ================================= */}
+            {/* RETRIEVAL EXPLANATION */}
+            {/* ================================= */}
+
+            <div className="mt-5 pt-5 border-t">
+
+              <div className="flex items-center gap-2 mb-4">
+
+                <FaChartBar className="text-indigo-700" />
+
+                <h4 className="font-bold text-indigo-900">
+
+                  Retrieval Relevance
+
+                </h4>
 
               </div>
 
-              {/* Section */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
 
-              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <ScoreBox
+                  label="Semantic"
+                  value={source.semantic_score}
+                />
 
-                <div className="flex items-center gap-2 mb-2">
+                <ScoreBox
+                  label="Keyword"
+                  value={source.keyword_score}
+                />
 
-                  <FaGavel className="text-emerald-700" />
+                <ScoreBox
+                  label="Metadata"
+                  value={source.metadata_score}
+                />
 
-                  <span className="font-semibold">
-                    Section
-                  </span>
+                <ScoreBox
+                  label="Domain"
+                  value={source.domain_score}
+                />
 
-                </div>
-
-                <p className="text-slate-700">
-                  {source.section || "Not Available"}
-                </p>
-
-              </div>
-
-              {/* Title */}
-
-              <div className="bg-white rounded-xl border border-slate-200 p-4">
-
-                <div className="flex items-center gap-2 mb-2">
-
-                  <FaBookOpen className="text-orange-600" />
-
-                  <span className="font-semibold">
-                    Title
-                  </span>
-
-                </div>
-
-                <p className="text-slate-700">
-                  {source.title || "Not Available"}
-                </p>
+                <ScoreBox
+                  label="Final"
+                  value={source.final_score}
+                  highlight
+                />
 
               </div>
 
@@ -129,5 +126,55 @@ export default function SourceCard({ sources }) {
       </div>
 
     </div>
+
+  );
+}
+
+
+/* ============================================================
+   SCORE BOX
+============================================================ */
+
+function ScoreBox({
+  label,
+  value,
+  highlight = false
+}) {
+
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : 0;
+
+  return (
+
+    <div
+      className={
+        highlight
+          ? "bg-blue-100 border border-blue-300 rounded-lg p-3"
+          : "bg-white border rounded-lg p-3"
+      }
+    >
+
+      <p className="text-xs text-gray-500 font-semibold">
+
+        {label}
+
+      </p>
+
+      <p
+        className={
+          highlight
+            ? "text-xl font-bold text-blue-900 mt-1"
+            : "text-lg font-bold text-gray-800 mt-1"
+        }
+      >
+
+        {numericValue.toFixed(3)}
+
+      </p>
+
+    </div>
+
   );
 }

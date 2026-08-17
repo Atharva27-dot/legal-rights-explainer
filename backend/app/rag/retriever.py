@@ -1,18 +1,38 @@
 """
-Domain-aware semantic legal retriever.
+Domain-aware and issue-aware semantic legal retriever.
 
-Performs semantic retrieval from ChromaDB and supports
-optional legal-domain filtering.
+Pipeline:
+
+    User Query
+        ↓
+    Legal Domain
+        ↓
+    Specific Legal Issue
+        ↓
+    Issue-aware Keyword Extraction
+        ↓
+    Controlled Query Expansion
+        ↓
+    Embedding
+        ↓
+    ChromaDB
+        ↓
+    Top-K Legal Documents
 """
 
 import chromadb
 
 from app.rag.embedder import EmbeddingGenerator
+from app.retrieval.keyword_extractor import KeywordExtractor
 
 
 class LegalRetriever:
 
     def __init__(self):
+
+        # ========================================================
+        # CHROMA DATABASE
+        # ========================================================
 
         self.client = chromadb.PersistentClient(
             path="chroma_db"
@@ -22,105 +42,98 @@ class LegalRetriever:
             "legal_documents"
         )
 
+        # ========================================================
+        # EMBEDDING MODEL
+        # ========================================================
+
         self.embedder = EmbeddingGenerator()
+
+        # ========================================================
+        # ISSUE-AWARE KEYWORD EXTRACTOR
+        # ========================================================
+
+        self.keyword_extractor = KeywordExtractor()
 
     # ============================================================
     # QUERY EXPANSION
     # ============================================================
 
-    def expand_query(self, query: str):
+    def expand_query(
+        self,
+        query: str,
+        domain: str | None = None,
+        issue_type: str | None = None
+    ):
+        """
+        Build a controlled legal query.
 
-        query_lower = query.lower()
+        Priority:
 
-        expanded = query
+            Original user query
+                ↓
+            Issue-specific vocabulary
+                ↓
+            Limited domain vocabulary
 
-        if (
-            "who is" in query_lower
-            or "what is" in query_lower
-        ):
+        This prevents broad domain terms from overwhelming
+        a specific legal issue.
+        """
 
-            expanded += " definition meaning"
+        # ========================================================
+        # ISSUE-AWARE EXPANSION
+        # ========================================================
 
-        if "consumer" in query_lower:
-
-            expanded += " consumer definition"
-
-        if "complaint" in query_lower:
-
-            expanded += (
-                " file complaint district commission"
+        expanded_query = (
+            self.keyword_extractor.expand_query(
+                query=query,
+                domain=domain,
+                issue_type=issue_type
             )
+        )
 
-        if "appeal" in query_lower:
+        # ========================================================
+        # DISPLAY INFORMATION
+        # ========================================================
 
-            expanded += " appeal procedure"
+        print()
+        print(
+            "=============================="
+        )
+        print(
+            "DOMAIN-AWARE QUERY"
+        )
+        print(
+            "=============================="
+        )
 
-        if "insurance" in query_lower:
+        print(
+            "Legal Domain:",
+            domain or "Not specified"
+        )
 
-            expanded += (
-                " insurance claim insurer policy grievance"
-            )
+        print(
+            "Specific Legal Issue:",
+            issue_type or "Not specified"
+        )
 
-        if any(
-            word in query_lower
-            for word in [
-                "cyber",
-                "upi",
-                "online fraud",
-                "phishing",
-                "otp"
-            ]
-        ):
+        print(
+            "Original Query:"
+        )
 
-            expanded += (
-                " cyber crime electronic transaction "
-                "information technology"
-            )
+        print(
+            query
+        )
 
-        if any(
-            word in query_lower
-            for word in [
-                "accident",
-                "vehicle",
-                "motor",
-                "driving"
-            ]
-        ):
+        print()
+        print(
+            "Expanded Query:"
+        )
 
-            expanded += (
-                " motor vehicle road accident compensation"
-            )
+        print(
+            expanded_query
+        )
 
-        if any(
-            word in query_lower
-            for word in [
-                "salary",
-                "employee",
-                "employer",
-                "labour",
-                "labor",
-                "wages"
-            ]
-        ):
-
-            expanded += (
-                " employment labour wages workplace"
-            )
-
-        if any(
-            word in query_lower
-            for word in [
-                "contract",
-                "agreement",
-                "breach"
-            ]
-        ):
-
-            expanded += (
-                " contract agreement breach obligations"
-            )
-
-        return expanded
+        return expanded_query
 
     # ============================================================
     # SEARCH
@@ -130,22 +143,63 @@ class LegalRetriever:
         self,
         query,
         top_k=10,
-        domain=None
+        domain=None,
+        issue_type=None
     ):
+        """
+        Perform domain-aware and issue-aware semantic retrieval.
+
+        Parameters
+        ----------
+        query:
+            User's original legal question.
+
+        top_k:
+            Number of documents to retrieve.
+
+        domain:
+            Selected legal domain.
+
+        issue_type:
+            Selected specific legal issue.
+
+        Returns
+        -------
+        ChromaDB result dictionary.
+        """
+
+        # ========================================================
+        # QUERY EXPANSION
+        # ========================================================
 
         expanded_query = self.expand_query(
-            query
+
+            query=query,
+
+            domain=domain,
+
+            issue_type=issue_type
+
         )
 
-        print("\nExpanded Query:")
-        print(expanded_query)
+        # ========================================================
+        # REQUEST INFORMATION
+        # ========================================================
 
-        if domain:
+        print()
+        print(
+            "Requested Legal Domain:",
+            domain or "Not specified"
+        )
 
-            print(
-                "Requested Legal Domain:",
-                domain
-            )
+        print(
+            "Requested Legal Issue:",
+            issue_type or "Not specified"
+        )
+
+        # ========================================================
+        # EMBEDDING
+        # ========================================================
 
         query_embedding = (
             self.embedder.generate_embedding(
@@ -153,9 +207,9 @@ class LegalRetriever:
             )
         )
 
-        # --------------------------------------------------------
+        # ========================================================
         # DOMAIN FILTER
-        # --------------------------------------------------------
+        # ========================================================
 
         where = None
 
@@ -165,9 +219,9 @@ class LegalRetriever:
                 "domain": domain
             }
 
-        # --------------------------------------------------------
-        # Chroma Search
-        # --------------------------------------------------------
+        # ========================================================
+        # CHROMA SEARCH
+        # ========================================================
 
         try:
 
@@ -183,19 +237,31 @@ class LegalRetriever:
 
             )
 
-            # If domain filtering returns nothing,
-            # fall back to normal semantic retrieval.
+            # ====================================================
+            # DOMAIN FALLBACK
+            # ====================================================
+
             if (
                 domain
-                and (
-                    not results.get("documents")
-                    or not results["documents"][0]
+                and
+                (
+                    not results.get(
+                        "documents"
+                    )
+                    or
+                    not results[
+                        "documents"
+                    ][0]
                 )
             ):
 
+                print()
                 print(
-                    "No documents found for domain.",
-                    "Falling back to global retrieval."
+                    "No documents found for selected domain."
+                )
+
+                print(
+                    "Falling back to global semantic retrieval."
                 )
 
                 results = self.collection.query(
@@ -210,8 +276,12 @@ class LegalRetriever:
 
         except Exception as exc:
 
+            print()
             print(
-                "Domain-filtered retrieval failed:",
+                "Domain-filtered retrieval failed:"
+            )
+
+            print(
                 exc
             )
 
@@ -227,6 +297,115 @@ class LegalRetriever:
 
                 n_results=top_k
 
+            )
+
+        # ========================================================
+        # RETRIEVAL DEBUG INFORMATION
+        # ========================================================
+
+        print()
+        print(
+            "=============================="
+        )
+
+        print(
+            "SEMANTIC RETRIEVAL"
+        )
+
+        print(
+            "=============================="
+        )
+
+        documents = results.get(
+            "documents",
+            [[]]
+        )
+
+        metadatas = results.get(
+            "metadatas",
+            [[]]
+        )
+
+        distances = results.get(
+            "distances",
+            [[]]
+        )
+
+        if (
+            documents
+            and
+            documents[0]
+        ):
+
+            for index, metadata in enumerate(
+                metadatas[0]
+            ):
+
+                section = metadata.get(
+                    "section",
+                    "Unknown"
+                )
+
+                title = metadata.get(
+                    "title",
+                    ""
+                )
+
+                domain_name = metadata.get(
+                    "domain",
+                    ""
+                )
+
+                distance = None
+
+                if (
+                    distances
+                    and
+                    distances[0]
+                    and
+                    index < len(
+                        distances[0]
+                    )
+                ):
+
+                    distance = distances[
+                        0
+                    ][index]
+
+                print()
+                print(
+                    f"Rank {index + 1}"
+                )
+
+                print(
+                    "Section:",
+                    section
+                )
+
+                print(
+                    "Title:",
+                    title
+                )
+
+                print(
+                    "Domain:",
+                    domain_name
+                )
+
+                if distance is not None:
+
+                    print(
+                        "Distance:",
+                        round(
+                            distance,
+                            4
+                        )
+                    )
+
+        else:
+
+            print(
+                "No documents retrieved."
             )
 
         return results

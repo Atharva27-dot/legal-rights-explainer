@@ -1,16 +1,26 @@
-from typing import List
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 
 class QuestionRequest(BaseModel):
+
     question: str
+
+    domain: Optional[str] = None
+
+    issue_type: Optional[str] = None
 
 
 class Source(BaseModel):
-    act: str
-    chapter: str
-    section: str
-    title: str
+
+    act: str = ""
+
+    chapter: str = ""
+
+    section: str = ""
+
+    title: str = ""
 
 
 class AnswerResponse(BaseModel):
