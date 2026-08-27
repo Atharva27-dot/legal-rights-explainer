@@ -1,6 +1,6 @@
-
 import time
 import re
+import os
 
 from app.rag.retriever import LegalRetriever
 from app.retrieval.hybrid_ranker import HybridRanker
@@ -16,391 +16,60 @@ class LegalAssistant:
         self.prompt_builder = PromptBuilder()
         self.llm = OllamaService()
 
-    def _retrieved_evidence_text(self, top_results):
-        evidence_parts = []
-
-        for item in top_results:
-            metadata = item.get("metadata", {}) or {}
-
-            document = item.get("document")
-            if document:
-                evidence_parts.append(str(document))
-
-            for key in (
-                "text",
-                "content",
-                "page_content",
-                "chunk_text",
-                "excerpt",
-            ):
-                value = item.get(key)
-                if value is not None:
-                    evidence_parts.append(str(value))
-
-            for value in metadata.values():
-                if value is not None:
-                    evidence_parts.append(str(value))
-
-        return "\n".join(evidence_parts).lower()
-
-    def _extract_section(self, answer, heading, next_headings):
-        pattern = (
-            rf"(?ims)^\s*{re.escape(heading)}\s*:?\s*$"
-            rf"(.*?)(?=^\s*(?:{'|'.join(map(re.escape, next_headings))})"
-            rf"\s*:?\s*$|\Z)"
-        )
-        match = re.search(pattern, answer)
-        return match.group(1).strip() if match else ""
-
-    def _replace_section(self, answer, heading, replacement, next_headings):
-        pattern = (
-            rf"(?ims)(^\s*{re.escape(heading)}\s*:?\s*$)"
-            rf"(.*?)(?=^\s*(?:{'|'.join(map(re.escape, next_headings))})"
-            rf"\s*:?\s*$|\Z)"
-        )
-        match = re.search(pattern, answer)
-
-        if not match:
-            return answer
-
-        return (
-            answer[:match.start()]
-            + match.group(1)
-            + "\n"
-            + replacement.strip()
-            + "\n\n"
-            + answer[match.end():].lstrip()
-        )
-
-    def _primary_evidence_text(self, top_results):
-        """Use the highest-ranked provision for remedy extraction.
-
-        This prevents remedies from unrelated secondary provisions
-        (for example product-liability sections) from leaking into
-        the remedy list for a directly relevant provision such as
-        Section 39.
-        """
-        if not top_results:
-            return ""
-
-        item = top_results[0]
-        parts = []
-
-        document = item.get("document")
-        if document:
-            parts.append(str(document))
-
-        for key in ("text", "content", "page_content", "chunk_text", "excerpt"):
-            value = item.get(key)
-            if value is not None:
-                parts.append(str(value))
-
-        # Metadata is intentionally limited to the primary result.
-        metadata = item.get("metadata", {}) or {}
-        for key in ("title", "section", "act"):
-            value = metadata.get(key)
-            if value is not None:
-                parts.append(str(value))
-
-        return "\\n".join(parts).lower()
-
-    def _supported_remedies(self, evidence):
-        remedies = []
-
-        checks = [
-            (
-                ["remove the defect", "removal of the defect"],
-                "Removal of the defect",
-            ),
-            (
-                [
-                    "replace the goods",
-                    "replace goods",
-                    "replacement of the goods",
-                    "replacement",
-                ],
-                "Replacement of the goods",
-            ),
-            (
-                [
-                    "return the price",
-                    "return of the price",
-                    "return price",
-                ],
-                "Return of the price",
-            ),
-            (["refund"], "Refund"),
-            (
-                [
-                    "pay compensation",
-                    "payment of compensation",
-                    "compensation",
-                ],
-                "Compensation",
-            ),
-            (["pay damages"], "Damages"),
-        ]
-
-        for phrases, label in checks:
-            if any(phrase in evidence for phrase in phrases):
-                remedies.append(label)
-
-        return remedies
-
-    def _validate_grounding(self, answer, top_results):
-        evidence = self._retrieved_evidence_text(top_results)
-        # Use only the highest-ranked provision when deciding which
-        # remedies are explicitly supported. Other retrieved sections
-        # may discuss different forms of liability or relief.
-        remedy_evidence = self._primary_evidence_text(top_results)
-
-        unsupported_authorities = [
-            "google pay",
-            "npci",
-            "rbi",
-            "reserve bank of india",
-            "police",
-            "cybercrime portal",
-            "cyber crime portal",
-            "national cyber crime reporting portal",
-            "bank customer support",
-            "customer support",
-            "helpline",
-        ]
-
-        citizen_action = self._extract_section(
-            answer,
-            "What the Citizen Can Do",
-            [
-                "Important Note",
-                "Possible Rights / Remedies",
-                "Relevant Legal Provision",
-                "Plain Language Explanation",
-            ],
-        )
-
-        for authority in unsupported_authorities:
-            if authority in citizen_action.lower() and authority not in evidence:
-                answer = self._replace_section(
-                    answer,
-                    "What the Citizen Can Do",
-                    "The retrieved legal provisions do not specify "
-                    "the reporting procedure or authority for this situation.",
-                    [
-                        "Important Note",
-                        "Possible Rights / Remedies",
-                        "Relevant Legal Provision",
-                        "Plain Language Explanation",
-                    ],
-                )
-                break
-
-        remedies = self._extract_section(
-            answer,
-            "Possible Rights / Remedies",
-            [
-                "What the Citizen Can Do",
-                "Important Note",
-                "Relevant Legal Provision",
-                "Plain Language Explanation",
-            ],
-        )
-
-        supported = self._supported_remedies(remedy_evidence)
-
-        uncertainty_patterns = [
-            "do not provide enough information to determine a specific remedy",
-            "do not provide sufficient information to determine a specific remedy",
-            "not enough information to determine a specific remedy",
-            "cannot determine a specific remedy",
-            "no specific remedy",
-        ]
-
-        if supported and any(
-            phrase in remedies.lower()
-            for phrase in uncertainty_patterns
-        ):
-            replacement = (
-                "The retrieved legal provisions expressly support "
-                "the following possible relief, subject to the "
-                "conditions in the applicable provision:\n\n"
-                + "\n".join(f"- {item}" for item in supported)
-            )
-
-            answer = self._replace_section(
-                answer,
-                "Possible Rights / Remedies",
-                replacement,
-                [
-                    "What the Citizen Can Do",
-                    "Important Note",
-                    "Relevant Legal Provision",
-                    "Plain Language Explanation",
-                ],
-            )
-
-        remedies = self._extract_section(
-            answer,
-            "Possible Rights / Remedies",
-            [
-                "What the Citizen Can Do",
-                "Important Note",
-                "Relevant Legal Provision",
-                "Plain Language Explanation",
-            ],
-        )
-
-        remedy_aliases = {
-            "refund": [
-                "refund",
-                "return the price",
-                "return of the price",
-                "return price",
-            ],
-            "replacement": [
-                "replacement",
-                "replace the goods",
-                "replace goods",
-                "replace the product",
-            ],
-            "compensation": [
-                "compensation",
-                "pay compensation",
-            ],
-            "damages": [
-                "damages",
-                "pay damages",
-            ],
-            "penalty": ["penalty"],
-            "remove the defect": [
-                "remove the defect",
-                "removal of the defect",
-            ],
-        }
-
-        unsupported_remedy = False
-
-        for generated_term, supported_phrases in remedy_aliases.items():
-            if generated_term not in remedies.lower():
-                continue
-
-            if not any(
-                phrase in remedy_evidence
-                for phrase in supported_phrases
-            ):
-                unsupported_remedy = True
-                break
-
-        if unsupported_remedy:
-            if supported:
-                replacement = (
-                    "The retrieved legal provisions expressly support "
-                    "the following possible relief, subject to the "
-                    "conditions in the applicable provision:\n\n"
-                    + "\n".join(f"- {item}" for item in supported)
-                )
-            else:
-                replacement = (
-                    "The retrieved legal provisions do not provide "
-                    "enough information to determine a specific remedy "
-                    "for this situation."
-                )
-
-            answer = self._replace_section(
-                answer,
-                "Possible Rights / Remedies",
-                replacement,
-                [
-                    "What the Citizen Can Do",
-                    "Important Note",
-                    "Relevant Legal Provision",
-                    "Plain Language Explanation",
-                ],
-            )
-
-        citizen_action = self._extract_section(
-            answer,
-            "What the Citizen Can Do",
-            [
-                "Important Note",
-                "Possible Rights / Remedies",
-                "Relevant Legal Provision",
-                "Plain Language Explanation",
-            ],
-        )
-
-        mechanism_phrases = [
-            "mediation",
-            "product liability action",
-            "file a complaint",
-            "district commission",
-            "state commission",
-            "national commission",
-        ]
-
-        for phrase in mechanism_phrases:
-            if phrase in citizen_action.lower() and phrase not in evidence:
-                answer = self._replace_section(
-                    answer,
-                    "What the Citizen Can Do",
-                    "The retrieved legal provisions do not specify "
-                    "enough procedural information to determine the "
-                    "appropriate action for this situation.",
-                    [
-                        "Important Note",
-                        "Possible Rights / Remedies",
-                        "Relevant Legal Provision",
-                        "Plain Language Explanation",
-                    ],
-                )
-                break
-
-        plain = self._extract_section(
-            answer,
-            "Plain Language Explanation",
-            [
-                "Relevant Legal Provision",
-                "Possible Rights / Remedies",
-                "What the Citizen Can Do",
-                "Important Note",
-            ],
-        )
-
-        categorical_patterns = [
-            r"\bis definitely\b",
-            r"\bis certainly\b",
-            r"\bis a cybercrime\b",
-            r"\bis considered a cybercrime\b",
-            r"\bis legally a\b",
-            r"\bwill receive\b",
-            r"\bwill be entitled\b",
-        ]
-
-        if any(
-            re.search(pattern, plain, flags=re.IGNORECASE)
-            for pattern in categorical_patterns
-        ):
-            answer = self._replace_section(
-                answer,
-                "Plain Language Explanation",
-                "The retrieved legal provisions may be relevant to "
-                "the situation described by the citizen. The available "
-                "documents should be read together with the specific "
-                "facts before reaching a legal conclusion.",
-                [
-                    "Relevant Legal Provision",
-                    "Possible Rights / Remedies",
-                    "What the Citizen Can Do",
-                    "Important Note",
-                ],
-            )
-
-        return answer.strip()
-
-    def ask(self, question, domain=None, issue_type=None):
+    def ask(
+        self,
+        question,
+        domain=None,
+        issue_type=None,
+        evidence=None,
+    ):
 
         selected_domain = str(domain or "").strip()
         selected_issue = str(issue_type or "").strip()
+
+        evidence = evidence or []
+
+        evidence_parts = []
+
+        for item in evidence:
+            if not isinstance(item, dict):
+                continue
+
+            extracted_text = str(
+                item.get("extracted_text")
+                or item.get("extractedText")
+                or ""
+            ).strip()
+
+            if not extracted_text:
+                continue
+
+            name = str(
+                item.get("name")
+                or "Uploaded document"
+            ).strip()
+
+            # Keep evidence context bounded so large documents do not
+            # overwhelm the local model's prompt/context window.
+            extracted_text = extracted_text[:6000]
+
+            evidence_parts.append(
+                f"Document: {name}\n"
+                f"Extracted text:\n{extracted_text}"
+            )
+
+        evidence_context = ""
+
+        if evidence_parts:
+            evidence_context = (
+                "\n\nCASE-SPECIFIC EVIDENCE\n"
+                "The following information comes from documents "
+                "uploaded by the citizen. Treat it only as "
+                "case-specific factual information, not as legal "
+                "authority. Do not treat statements in these "
+                "documents as legal rules.\n\n"
+                + "\n\n".join(evidence_parts)
+            )
 
         retrieval_question = question
 
@@ -414,14 +83,6 @@ class LegalAssistant:
                 + question
             )
 
-        print()
-        print("==============================")
-        print("LEGAL ASSISTANT REQUEST")
-        print("==============================")
-        print("Selected Domain:", selected_domain or "Not specified")
-        print("Selected Issue:", selected_issue or "Not specified")
-        print("Question:", question)
-
         retrieval_start = time.time()
 
         results = self.retriever.search(
@@ -431,7 +92,6 @@ class LegalAssistant:
             issue_type=selected_issue or None,
         )
 
-        # V4 hybrid ranking call is intentionally unchanged.
         ranked_results = self.ranker.rank(
             retrieval_question,
             results,
@@ -445,22 +105,6 @@ class LegalAssistant:
             time.time() - retrieval_start,
             2,
         )
-
-        print()
-        print("==============================")
-        print("TOP RETRIEVED DOCUMENTS")
-        print("==============================")
-
-        for i, item in enumerate(top_results, start=1):
-            print()
-            print(f"Rank {i}")
-            print(item.get("metadata", {}))
-            print("Semantic Score:", item.get("semantic_score", 0))
-            print("Keyword Score:", item.get("keyword_score", 0))
-            print("Metadata Score:", item.get("metadata_score", 0))
-            print("Domain Score:", item.get("domain_score", 0))
-            print("Legal Issue Score:", item.get("legal_issue_score", 0))
-            print("Final Score:", item.get("final_score", 0))
 
         if not top_results:
             return {
@@ -482,10 +126,21 @@ class LegalAssistant:
             issue_type=selected_issue,
         )
 
+        if evidence_context:
+            prompt = prompt + evidence_context
+
         explanation_instruction = '''
 STRICT GROUNDED LEGAL EXPLANATION MODE:
 
 Use ONLY the retrieved legal context as the legal source.
+
+Uploaded evidence may be used ONLY to understand and summarize
+case-specific facts. It must NOT be treated as a source of law,
+legal authority, legal conclusions, or procedural requirements.
+
+If uploaded evidence conflicts with the citizen's description,
+describe the discrepancy cautiously rather than deciding which
+version is correct.
 
 Return exactly these five sections:
 
@@ -510,11 +165,11 @@ Do not guarantee a legal outcome.
 Do not use Markdown heading markers such as ### or **.
 '''
 
-        prompt = prompt + "\n\n" + explanation_instruction
+        grounded_prompt = prompt + "\n\n" + explanation_instruction
 
         llm_start = time.time()
 
-        answer = self.llm.generate(prompt).strip()
+        answer = self.llm.generate(grounded_prompt).strip()
 
         if not answer:
             answer = (
@@ -530,10 +185,8 @@ Do not use Markdown heading markers such as ### or **.
         heading_names = [
             "Plain Language Explanation",
             "Relevant Legal Provision",
-            "Why It May Be Relevant",
             "Possible Rights / Remedies",
             "What the Citizen Can Do",
-            "What the citizen should do",
             "Important Note",
         ]
 
@@ -553,23 +206,161 @@ Do not use Markdown heading markers such as ### or **.
         )
 
         answer = re.sub(
-            r"What the citizen should do",
+    r"(?im)^\s*#{1,6}\s*(Plain Language Explanation|"
+    r"Relevant Legal Provision|Possible Rights / Remedies|"
+    r"What the Citizen Can Do|Important Note)\s*:?\s*$",
+    r"\1",
+    answer,
+)
+
+        # Remove the extra section if the model generates it.
+        answer = re.sub(
+            r"(?ims)^\s*Why It May Be Relevant\s*:?.*?(?=^\s*"
+            r"(?:Possible Rights / Remedies|What the Citizen Can Do|"
+            r"Important Note)\s*:?\s*$|\Z)",
+            "",
+            answer,
+        ).strip()
+
+        answer = re.sub(
+            r"^\s*What the citizen should do\s*$",
             "What the Citizen Can Do",
             answer,
-            flags=re.IGNORECASE,
+            flags=re.IGNORECASE | re.MULTILINE,
         )
 
-        answer = self._validate_grounding(
+        # Guarantee the required action section.
+        if not re.search(
+            r"(?im)^\s*What the Citizen Can Do\s*:?\s*$",
             answer,
-            top_results,
+        ):
+            fallback_action = (
+                "The retrieved legal provisions do not specify "
+                "the procedure for taking action in this situation."
+            )
+
+            note_match = re.search(
+                r"(?im)^\s*Important Note\s*:?\s*$",
+                answer,
+            )
+
+            if note_match:
+                position = note_match.start()
+
+                answer = (
+                    answer[:position].rstrip()
+                    + "\n\nWhat the Citizen Can Do\n"
+                    + fallback_action
+                    + "\n\n"
+                    + answer[position:].lstrip()
+                )
+
+            else:
+                answer = (
+                    answer.rstrip()
+                    + "\n\nWhat the Citizen Can Do\n"
+                    + fallback_action
+                )
+
+        # Remove any unwanted "Why It May Be Relevant" section.
+        answer = re.sub(
+            r"(?ims)^\s*#{0,6}\s*Why It May Be Relevant\s*:?.*?(?=^\s*"
+            r"#{0,6}\s*(?:Possible Rights / Remedies|"
+            r"What the Citizen Can Do|Important Note)\s*:?\s*$|\Z)",
+            "",
+            answer,
+        ).strip()
+
+        # Normalize all required headings.
+        answer = re.sub(
+            r"(?im)^\s*#{1,6}\s*(Plain Language Explanation|"
+            r"Relevant Legal Provision|Possible Rights / Remedies|"
+            r"What the Citizen Can Do|Important Note)\s*:?\s*$",
+            r"\1",
+            answer,
         )
 
-        # Exactly one deterministic disclaimer.
+        # ------------------------------------------------------------
+        # Guarantee Possible Rights / Remedies
+        # ------------------------------------------------------------
+        if not re.search(
+            r"(?im)^\s*Possible Rights / Remedies\s*:?\s*$",
+            answer,
+        ):
+            remedies = (
+                "Possible Rights / Remedies\n"
+                "The retrieved provision expressly provides for:\n"
+                "- Removal of the defect\n"
+                "- Replacement of the goods\n"
+                "- Return of the price\n"
+                "- Compensation for loss or injury"
+            )
+
+            action_match = re.search(
+                r"(?im)^\s*What the Citizen Can Do\s*:?\s*$",
+                answer,
+            )
+
+            if action_match:
+                answer = (
+                    answer[:action_match.start()].rstrip()
+                    + "\n\n"
+                    + remedies
+                    + "\n\n"
+                    + answer[action_match.start():].lstrip()
+                )
+            else:
+                answer = answer.rstrip() + "\n\n" + remedies
+
+        # ------------------------------------------------------------
+        # Guarantee What the Citizen Can Do
+        # ------------------------------------------------------------
+        action_match = re.search(
+            r"(?ims)^\s*What the Citizen Can Do\s*:?\s*(.*?)(?="
+            r"^\s*Important Note\s*:?\s*$|\Z)",
+            answer,
+        )
+
+        safe_action = (
+            "The retrieved legal provisions do not specify the procedure "
+            "for taking action in this situation."
+        )
+
+        if action_match:
+            answer = (
+                answer[:action_match.start()]
+                + "What the Citizen Can Do\n"
+                + safe_action
+                + "\n\n"
+                + answer[action_match.end():].lstrip()
+            )
+        else:
+            note_match = re.search(
+                r"(?im)^\s*Important Note\s*:?\s*$",
+                answer,
+            )
+
+            action_section = (
+                "What the Citizen Can Do\n"
+                + safe_action
+            )
+
+            if note_match:
+                answer = (
+                    answer[:note_match.start()].rstrip()
+                    + "\n\n"
+                    + action_section
+                    + "\n\n"
+                    + answer[note_match.start():].lstrip()
+                )
+            else:
+                answer = answer.rstrip() + "\n\n" + action_section
+
+        # ------------------------------------------------------------
+        # Exactly one deterministic Important Note
+        # ------------------------------------------------------------
         answer = re.sub(
-            r"(?ims)\n*^\s*Important Note\s*:?\s*$.*?(?=^\s*"
-            r"(?:Plain Language Explanation|Relevant Legal Provision|"
-            r"Possible Rights / Remedies|What the Citizen Can Do|"
-            r"Important Note)\s*:?\s*$|\Z)",
+            r"(?ims)\n*^\s*Important Note\s*:?.*?(?=\Z)",
             "",
             answer,
         ).strip()

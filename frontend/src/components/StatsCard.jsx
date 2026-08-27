@@ -1,8 +1,11 @@
+import { useState } from "react";
 import {
   FaCheckCircle,
+  FaChevronDown,
+  FaChevronUp,
   FaClock,
-  FaRobot,
   FaDatabase,
+  FaRobot,
 } from "react-icons/fa";
 
 export default function StatsCard({
@@ -11,74 +14,132 @@ export default function StatsCard({
   llm_time,
   total_time,
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!confidence) return null;
 
-  const confidenceColor = {
-    High: "text-green-600",
-    Medium: "text-yellow-500",
-    Low: "text-red-500",
-  };
-
-  const cards = [
-    {
-      icon: <FaCheckCircle className={`text-3xl ${confidenceColor[confidence] || "text-green-600"}`} />,
-      title: "Confidence",
-      value: confidence,
-      bg: "from-green-50 to-green-100",
-    },
-    {
-      icon: <FaDatabase className="text-3xl text-blue-700" />,
-      title: "Retrieval",
-      value: `${retrieval_time} sec`,
-      bg: "from-blue-50 to-blue-100",
-    },
-    {
-      icon: <FaRobot className="text-3xl text-purple-700" />,
-      title: "AI Generation",
-      value: `${llm_time} sec`,
-      bg: "from-purple-50 to-purple-100",
-    },
-    {
-      icon: <FaClock className="text-3xl text-orange-600" />,
-      title: "Total Time",
-      value: `${total_time} sec`,
-      bg: "from-orange-50 to-orange-100",
-    },
-  ];
-
   return (
-    <div className="mt-8">
+    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
 
-      <h2 className="text-2xl font-bold text-slate-800 mb-5">
-        📊 AI Performance
-      </h2>
+      <div className="px-6 py-5">
 
-      <div className="grid md:grid-cols-4 gap-5">
+        <div className="flex items-center justify-between gap-4">
 
-        {cards.map((card, index) => (
+          <div className="flex items-center gap-3">
 
-          <div
-            key={index}
-            className={`rounded-3xl bg-gradient-to-br ${card.bg} border border-slate-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1`}
-          >
-
-            <div className="mb-5">
-              {card.icon}
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <FaClock />
             </div>
 
-            <h3 className="text-slate-600 font-medium">
-              {card.title}
-            </h3>
+            <div>
+              <h2 className="font-bold text-slate-900">
+                System Performance
+              </h2>
 
-            <p className="mt-2 text-2xl font-bold text-slate-800">
-              {card.value}
-            </p>
+              <p className="text-sm text-slate-500">
+                Technical details about this response
+              </p>
+            </div>
 
           </div>
 
-        ))}
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+          >
+            {expanded ? "Hide details" : "Technical details"}
+
+            {expanded ? <FaChevronUp /> : <FaChevronDown />}
+          </button>
+
+        </div>
+
+        {/* Simple citizen-facing summary */}
+        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Response completed
+            </p>
+
+            <p className="text-2xl font-bold text-slate-900 mt-1">
+              {total_time} sec
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+
+            <FaCheckCircle className="text-emerald-600" />
+
+            <div>
+              <p className="text-xs text-slate-500">
+                Retrieval confidence
+              </p>
+
+              <p className="font-semibold text-slate-800">
+                {confidence}
+              </p>
+            </div>
+
+          </div>
+
+        </div>
 
       </div>
+
+      {/* Technical details */}
+      {expanded && (
+        <div className="border-t border-slate-200 bg-slate-50 p-6">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <FaDatabase className="text-blue-700 text-xl mb-3" />
+
+              <p className="text-xs text-slate-500">
+                Retrieval
+              </p>
+
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                {retrieval_time} sec
+              </p>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <FaRobot className="text-violet-700 text-xl mb-3" />
+
+              <p className="text-xs text-slate-500">
+                AI Generation
+              </p>
+
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                {llm_time} sec
+              </p>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <FaClock className="text-orange-600 text-xl mb-3" />
+
+              <p className="text-xs text-slate-500">
+                Total
+              </p>
+
+              <p className="text-xl font-bold text-slate-900 mt-1">
+                {total_time} sec
+              </p>
+            </div>
+
+          </div>
+
+          <div className="mt-4 text-xs text-slate-500">
+            Performance metrics are provided for transparency and debugging.
+            They do not represent legal confidence or the probability of a
+            legal outcome.
+          </div>
+
+        </div>
+      )}
 
     </div>
   );

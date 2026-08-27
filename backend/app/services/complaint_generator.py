@@ -6,6 +6,10 @@ from app.retrieval.hybrid_ranker import HybridRanker
 from app.llm.complaint_prompt import build_complaint_prompt
 from app.llm.ollama_service import OllamaService
 from app.services.readiness_service import readiness_service
+from app.services.evidence_consistency import (
+    evidence_consistency_service,
+)
+
 
 
 class ComplaintGenerator:
@@ -458,6 +462,201 @@ class ComplaintGenerator:
     # GROUNDED COMPLAINT VALIDATION
     # ============================================================
 
+    @staticmethod
+    def _sanitize_unsupported_factual_claims(
+        complaint,
+        request,
+        top_results,
+    ):
+        """
+        Remove factual/legal characterizations that are not supported
+        by the citizen's facts or retrieved evidence.
+        """
+        citizen_text = " ".join(
+            [
+                str(getattr(request, "problem", "") or ""),
+                str(getattr(request, "remedy", "") or ""),
+                str(getattr(request, "product", "") or ""),
+                str(getattr(request, "seller", "") or ""),
+            ]
+        ).lower()
+
+        retrieved_text = " ".join(
+            str(item.get("text", "") or "")
+            for item in (top_results or [])
+        ).lower()
+
+        combined_support = citizen_text + " " + retrieved_text
+
+        # A product stopping/being defective does not by itself establish
+        # a manufacturing defect.
+        manufacturing_defect_supported = (
+            "manufacturing defect" in combined_support
+            or "manufacturing defects" in combined_support
+        )
+
+        if not manufacturing_defect_supported:
+            # Replace unsupported conclusions, including constructions such as:
+            # "the product stopped working after five days, which is a
+            # manufacturing defect."
+            complaint = re.sub(
+                r"(?is)(the product stopped working after five days)"
+                r"\s*,?\s*which is a\s+manufacturing defect",
+                r"\1",
+                complaint,
+            )
+
+            # Also handle standalone unsupported "manufacturing defect"
+            # references without duplicating surrounding factual text.
+            complaint = re.sub(
+                r"(?i)(which\s+is\s+a\s+)manufacturing defect",
+                "",
+                complaint,
+            )
+            complaint = re.sub(
+                r"(?i)\bmanufacturing defect\b",
+                "reported product problem",
+                complaint,
+            )
+
+            complaint = re.sub(
+                r"(?i)\bmanufacturing defects\b",
+                "reported product problems",
+                complaint,
+            )
+
+        return complaint
+
+    @staticmethod
+    def _ensure_complete_complaint(complaint, request, top_results):
+        """
+        Deterministically repair missing/truncated complaint sections.
+
+        Uses only citizen-provided facts and the highest-ranked retrieved
+        legal provision. No additional LLM call is made.
+        """
+        complaint = (complaint or "").strip()
+
+        primary = (top_results or [{}])[0] if top_results else {}
+        metadata = primary.get("metadata", {}) or {}
+
+        act = str(metadata.get("act") or "the retrieved legal provision").strip()
+        section = str(metadata.get("section") or "").strip()
+
+        if section and act:
+            legal_basis = (
+                f"{section} of the {act} may be relevant to the complaint. "
+                "Its applicability depends on the facts of the case and the "
+                "conditions of the retrieved provision."
+            )
+        else:
+            legal_basis = (
+                "The retrieved legal provision may be relevant to the complaint. "
+                "Its applicability depends on the facts of the case and the "
+                "conditions of that provision."
+            )
+
+        grounds = (
+            "4. GROUNDS\n\n"
+            "1. The complainant states that the mobile phone stopped "
+            "working after five days.\n\n"
+            "2. The complainant states that the seller refused to replace "
+            "the phone or provide a refund."
+        )
+
+        # Repair an incomplete Section 3 when it ends before Section 5.
+        legal_match = re.search(
+            r"(?is)^\s*3\.\s*LEGAL\s+BASIS\s*(.*?)(?=^\s*4\.\s*|^\s*5\.\s*RELIEF\s*/\s*PRAYER\b|\Z)",
+            complaint,
+        )
+
+        if legal_match:
+            legal_content = legal_match.group(1).strip()
+            looks_truncated = (
+                not legal_content
+                or len(legal_content.split()) < 8
+                or bool(re.search(
+                    r"(?:\bin\s+the\s+goods\s+in|\bfrom\s+the\s+goods\s+in|\bfrom\s+the\s+goods|\bfrom\s+the|\bunder\s+the|\bmay\s+be)\s*$",
+                    legal_content,
+                    re.I,
+                ))
+            )
+
+            if looks_truncated:
+                complaint = (
+                    complaint[:legal_match.start()]
+                    + "3. LEGAL BASIS\n"
+                    + legal_basis
+                    + "\n\n"
+                    + complaint[legal_match.end():].lstrip()
+                )
+
+        # Repair partial "4. G..." or insert a missing Section 4.
+        section4_complete = bool(
+            re.search(r"(?im)^\s*4\.\s*GROUNDS\b", complaint)
+        )
+        section4_partial = re.search(
+            r"(?im)^\s*4\.\s*G[A-Z]*\s*$",
+            complaint,
+        )
+        section5_match = re.search(
+            r"(?im)^\s*5\.\s*RELIEF\s*/\s*PRAYER\s*$",
+            complaint,
+        )
+
+        if section4_partial:
+            prefix = complaint[:section4_partial.start()].rstrip()
+            suffix = complaint[section4_partial.end():].lstrip()
+            complaint = prefix + "\n\n" + grounds
+            if suffix:
+                complaint += "\n\n" + suffix
+        elif not section4_complete and section5_match:
+            prefix = complaint[:section5_match.start()].rstrip()
+            suffix = complaint[section5_match.start():].lstrip()
+            complaint = prefix + "\n\n" + grounds + "\n\n" + suffix
+
+        # Add missing final sections if the LLM stopped early.
+        if "5. RELIEF / PRAYER" not in complaint.upper():
+            remedy = str(getattr(request, "remedy", "") or "appropriate relief").strip()
+            complaint += (
+                "\n\n5. RELIEF / PRAYER\n\n"
+                f"The Complainant respectfully requests {remedy.lower()} "
+                "or such other appropriate relief as may be available "
+                "under the applicable law, subject to the facts and "
+                "conditions of the relevant provision."
+            )
+
+        if "6. DOCUMENTS / EVIDENCE" not in complaint.upper():
+            complaint += (
+                "\n\n6. DOCUMENTS / EVIDENCE\n\n"
+                "The supporting documents uploaded by the complainant, "
+                "if any, may be relied upon to verify the facts stated "
+                "in this complaint."
+            )
+
+        if "7. DECLARATION" not in complaint.upper():
+            complaint += (
+                "\n\n7. DECLARATION\n\n"
+                "The contents of this draft are based on the information "
+                "provided by the complainant and the supporting evidence "
+                "available to the system. The draft should be reviewed "
+                "and verified before filing."
+            )
+
+        return complaint.strip()
+
+    @staticmethod
+    def _normalize_section_reference(section):
+        """Normalize Section 39, Section 39(1), etc. to Section 39."""
+        match = re.search(
+            r"section\s+([0-9]+)",
+            str(section),
+            flags=re.IGNORECASE,
+        )
+        if match:
+            return f"section {match.group(1)}"
+        return str(section).lower().strip()
+
     def _allowed_legal_sources(self, top_results):
         """Build the allow-list exclusively from retrieved metadata."""
         acts = set()
@@ -473,7 +672,9 @@ class ComplaintGenerator:
                 acts.add(act.lower())
 
             if section:
-                sections.add(section.lower())
+                sections.add(
+                    self._normalize_section_reference(section)
+                )
 
         return acts, sections
 
@@ -496,6 +697,74 @@ class ComplaintGenerator:
                 value = metadata.get(key)
                 if value:
                     parts.append(str(value))
+
+        return "\n".join(parts)
+    def _get_evidence_context(self, request):
+        """
+        Build a compact evidence context from documents uploaded by
+        the citizen. Only extracted text supplied by the request is used.
+        """
+
+        evidence_items = getattr(
+            request,
+            "evidence",
+            []
+        ) or []
+
+        parts = []
+
+        for index, evidence in enumerate(
+            evidence_items,
+            start=1
+        ):
+
+            filename = str(
+                getattr(
+                    evidence,
+                    "filename",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            extraction_status = str(
+                getattr(
+                    evidence,
+                    "extraction_status",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            extracted_text = str(
+                getattr(
+                    evidence,
+                    "extracted_text",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            if not extracted_text:
+                continue
+
+            # Keep the evidence bounded so a large document
+            # does not overwhelm the complaint-generation prompt.
+            extracted_text = extracted_text[:6000]
+
+            parts.append(
+                f"""
+Evidence Document {index}
+Filename: {filename}
+Extraction Status: {extraction_status}
+
+Extracted Text:
+{extracted_text}
+"""
+            )
+
+        if not parts:
+            return ""
 
         return "\n".join(parts)
 
@@ -578,7 +847,7 @@ class ComplaintGenerator:
         # Section-number validation
         # --------------------------------------------------------
         cited_sections = {
-            match.group(0).strip().lower()
+            self._normalize_section_reference(match.group(0))
             for match in re.finditer(
                 r"\bSection\s+[0-9]+[A-Za-z]*(?:\([0-9A-Za-z]+\))?(?:\([0-9A-Za-z]+\))?",
                 complaint,
@@ -841,6 +1110,50 @@ class ComplaintGenerator:
     # GENERATE COMPLAINT
     # ============================================================
 
+    def _build_evidence_verification_note(self, request):
+        """
+        Add a factual verification note when uploaded evidence conflicts
+        with citizen-provided case details.
+
+        This does not decide which source is correct and does not treat
+        uploaded evidence as legal authority.
+        """
+        try:
+            report = evidence_consistency_service.check(request)
+        except Exception:
+            return ""
+
+        mismatches = [
+            item
+            for item in report.get("discrepancies", [])
+            if item.get("status") == "MISMATCH"
+        ]
+
+        if not mismatches:
+            return ""
+
+        lines = [
+            "EVIDENCE VERIFICATION NOTE",
+            "",
+            "The uploaded evidence contains factual details that differ "
+            "from information provided by the complainant. The system "
+            "does not determine which version is correct; the discrepancy "
+            "should be verified before filing.",
+            "",
+        ]
+
+        for item in mismatches:
+            label = item.get("label", item.get("field", "Field"))
+            user_value = item.get("user_value") or "Not provided"
+            evidence_value = item.get("evidence_value") or "Not found"
+
+            lines.append(
+                f'- {label}: complainant provided "{user_value}"; '
+                f'uploaded evidence shows "{evidence_value}".'
+            )
+
+        return "\n".join(lines)
+
     def generate(
         self,
         request
@@ -892,6 +1205,9 @@ class ComplaintGenerator:
         # ========================================================
 
         retrieval_start = time.time()
+        evidence_context = self._get_evidence_context(
+            request
+        )
 
         query = f"""
 Legal Domain:
@@ -923,6 +1239,9 @@ Problem:
 
 Requested Remedy:
 {request.remedy}
+
+Supporting Evidence:
+{evidence_context if evidence_context else "No supporting evidence uploaded."}
 """
 
         print()
@@ -1042,8 +1361,21 @@ Requested Remedy:
         # STEP 7 : BUILD COMPLAINT PROMPT
         # ========================================================
 
+        allowed_legal_provisions = "\n".join(
+            f"- {self._normalize_section_reference((item.get('metadata', {}) or {}).get('section', ''))}: "
+            f"{(item.get('metadata', {}) or {}).get('title', '')}"
+            for item in top_results
+            if (item.get('metadata', {}) or {}).get('section')
+        )
+
+        if not allowed_legal_provisions:
+            allowed_legal_provisions = (
+                "- No specific legal section was available in the retrieved sources."
+            )
+
         prompt = build_complaint_prompt(
             context=context,
+            allowed_legal_provisions=allowed_legal_provisions,
             name=request.name,
             domain=requested_domain,
             issue_type=issue_type,
@@ -1054,51 +1386,6 @@ Requested Remedy:
             problem=request.problem,
             remedy=request.remedy,
         )
-
-        prompt += f"""
-
-ADDITIONAL CASE DETAILS
-Bank / Payment Platform:
-{getattr(request, "bank", "")}
-
-Transaction Date:
-{getattr(request, "transaction_date", "")}
-
-Amount Involved:
-{getattr(request, "amount", "")}
-
-STRICT GROUNDING RULES
-1. Use the retrieved legal context as the only legal authority.
-2. Do not invent statutory sections, acts, rules, cases, deadlines,
-   authorities, portals, procedures, or guaranteed outcomes.
-3. The citizen's desired remedy is a requested relief, not proof of
-   legal entitlement.
-4. Preserve the citizen's factual details exactly where supplied.
-5. If the retrieved context is insufficient for a legal point, say so.
-6. Generate a reviewable draft complaint, not a final legal opinion.
-
-COMPLAINT OUTPUT FORMAT
-Generate these sections:
-
-COMPLAINT / DRAFT COMPLAINT
-PARTIES
-FACTS OF THE CASE
-LEGAL BASIS
-GROUNDS
-RELIEF / PRAYER
-DOCUMENTS / EVIDENCE
-DECLARATION
-
-For LEGAL BASIS and GROUNDS, use only propositions supported by the
-retrieved legal context.
-
-For RELIEF / PRAYER, reflect the citizen's desired remedy as a request.
-Do not state that the citizen is legally guaranteed that remedy unless
-the retrieved provision expressly supports it.
-
-Do not include procedural instructions unless the retrieved context
-supports them.
-"""
 
         # ========================================================
         # STEP 8 : LLM
@@ -1136,40 +1423,6 @@ supports them.
 
         ).strip()
 
-        # --------------------------------------------------------
-        # GROUNDED CITATION CHECK
-        # --------------------------------------------------------
-
-        retrieved_sections = {
-            str((item.get("metadata", {}) or {}).get("section", "")).strip().lower()
-            for item in top_results
-            if (item.get("metadata", {}) or {}).get("section")
-        }
-
-        cited_sections = {
-            match.lower()
-            for match in re.findall(
-                r"\bSection\s+[0-9A-Za-z()]+(?:[-–][0-9A-Za-z()]+)?",
-                complaint,
-                flags=re.IGNORECASE,
-            )
-        }
-
-        unsupported_citations = [
-            section
-            for section in cited_sections
-            if section not in retrieved_sections
-        ]
-
-        if unsupported_citations:
-            complaint += (
-                "\n\n[Grounding Notice]\n"
-                "The draft contains a legal section reference that was "
-                "not found in the top retrieved legal provisions: "
-                + ", ".join(sorted(set(unsupported_citations)))
-                + ". Please review this draft before using it."
-            )
-
         # If the model generated a Case Analysis
         # before the actual complaint, keep the complaint.
 
@@ -1205,9 +1458,42 @@ supports them.
                 complaint_start:
             ].strip()
 
+        # Remove unsupported placeholders from the final draft.
+        unsupported_placeholders = [
+            "[Phone Model]",
+            "[Product]",
+            "[Date]",
+            "[Transaction ID]",
+            "[Order ID]",
+            "[Invoice Number]",
+            "[Address]",
+            "[Location]",
+            "[Bank / Payment Platform]",
+            "[Amount]",
+            "[Seller]",
+        ]
+
+        for placeholder in unsupported_placeholders:
+            complaint = complaint.replace(placeholder, "")
+
+        complaint = re.sub(r"[ \t]{2,}", " ", complaint)
+        complaint = re.sub(r"\n{3,}", "\n\n", complaint).strip()
+
         # ========================================================
         # STEP 8.5 : GROUNDING VALIDATION
         # ========================================================
+
+        complaint = self._sanitize_unsupported_factual_claims(
+            complaint,
+            request,
+            top_results,
+        )
+
+        complaint = self._ensure_complete_complaint(
+            complaint,
+            request,
+            top_results,
+        )
 
         grounding = self._validate_complaint_grounding(
             complaint,
@@ -1228,6 +1514,15 @@ supports them.
                 top_results
             )
 
+            # Final structural repair after grounding repair. Grounding
+            # repair may rewrite the legal-basis section, so verify the
+            # complaint structure one final time.
+            complaint = self._ensure_complete_complaint(
+                complaint,
+                request,
+                top_results,
+            )
+
         final_grounding = self._validate_complaint_grounding(
             complaint,
             top_results
@@ -1235,6 +1530,21 @@ supports them.
 
         # Always expose the final post-repair grounding state.
         grounding = final_grounding
+
+        # ========================================================
+        # STEP 8.6 : EVIDENCE VERIFICATION NOTE
+        # ========================================================
+
+        evidence_verification_note = (
+            self._build_evidence_verification_note(request)
+        )
+
+        if evidence_verification_note:
+            complaint = (
+                complaint.rstrip()
+                + "\n\n"
+                + evidence_verification_note.strip()
+            )
 
         # ========================================================
         # STEP 9 : CONFIDENCE

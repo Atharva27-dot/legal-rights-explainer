@@ -13,9 +13,12 @@ import {
 } from "react-icons/fa";
 
 import { generateComplaint } from "../services/api";
+import EvidenceUploader from "./EvidenceUploader";
 
 export default function ComplaintForm({ setCaseData }) {
   const [loading, setLoading] = useState(false);
+  const [evidence, setEvidence] = useState([]);
+  const [complaintGenerated, setComplaintGenerated] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -142,22 +145,32 @@ export default function ComplaintForm({ setCaseData }) {
        * The original values are also preserved in the request.
        */
 
-      const requestData = {
-        ...formData,
+     const requestData = {
+  ...formData,
 
-        ...(isCyber && {
-          product: formData.issue_type,
-          seller: formData.bank,
-          purchase_date: formData.transaction_date,
-        }),
-      };
+  ...(isCyber && {
+    product: formData.issue_type,
+    seller: formData.bank,
+    purchase_date: formData.transaction_date,
+  }),
+
+  evidence: evidence.map((item) => ({
+    file_id: item.fileId,
+    filename: item.name,
+    extraction_status: item.extractionStatus,
+    extracted_text: item.extractedText,
+  })),
+};
 
       const response = await generateComplaint(requestData);
 
       setCaseData({
         formData: requestData,
         report: response,
+        evidence_consistency: response.evidence_consistency || null,
       });
+
+      setComplaintGenerated(true);
 
     } catch (error) {
       console.error(error);
@@ -733,6 +746,16 @@ export default function ComplaintForm({ setCaseData }) {
           </select>
 
         </div>
+        {/* =====================================================
+            SUPPORTING EVIDENCE
+        ====================================================== */}
+
+        {!complaintGenerated && (
+          <EvidenceUploader
+            onEvidenceChange={setEvidence}
+            onSkip={() => setEvidence([])}
+          />
+        )}
 
         {/* =====================================================
             BUTTON

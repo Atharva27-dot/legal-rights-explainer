@@ -38,13 +38,13 @@ def ask(
 ):
 
     result = assistant.ask(
-
-        question=request.question,
-
-        domain=request.domain,
-
-        issue_type=request.issue_type
-
+    question=request.question,
+    domain=request.domain,
+    issue_type=request.issue_type,
+    evidence=[
+        item.model_dump()
+        for item in request.evidence
+    ]
     )
 
     return AnswerResponse(

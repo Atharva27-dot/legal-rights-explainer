@@ -18,5 +18,9 @@ dist/
 .idea/
 
 .DS_Store
-Thumbs.dbbackend/chroma_db/
+Thumbs.db
+
+backend/chroma_db/
+backend/uploads/
 backend/evaluation_results.json
+backend.zip

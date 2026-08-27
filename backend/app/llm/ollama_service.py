@@ -18,6 +18,7 @@ class OllamaService:
         response = chat(
 
             model=self.model,
+            keep_alive="10m",
 
             messages=[
                 {
@@ -32,9 +33,9 @@ class OllamaService:
 
                 "top_p": 0.9,
 
-                "num_predict": 220,
+                "num_predict": 190,
 
-                "num_ctx": 4096
+                "num_ctx": 3072
 
             }
 
