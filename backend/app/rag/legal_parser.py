@@ -32,12 +32,23 @@ class LegalParser:
             f"{text[:15000]} {source_file}"
         ).lower()
 
+        # --------------------------------------------------------
+        # CONSUMER PROTECTION ACT, 2019
+        # --------------------------------------------------------
+
         if re.search(
             r"consumer\s+protection\s+act[\s,]*2019",
             combined,
             flags=re.IGNORECASE
         ):
             return "Consumer Protection Act, 2019"
+
+        if "consumer_protection" in source_file.lower():
+            return "Consumer Protection Act, 2019"
+
+        # --------------------------------------------------------
+        # INFORMATION TECHNOLOGY ACT, 2000
+        # --------------------------------------------------------
 
         if re.search(
             r"information\s+technology\s+act[\s,]*2000",
@@ -46,11 +57,57 @@ class LegalParser:
         ):
             return "Information Technology Act, 2000"
 
-        if "consumer_protection" in source_file.lower():
-            return "Consumer Protection Act, 2019"
-
         if "information_technology" in source_file.lower():
             return "Information Technology Act, 2000"
+
+        # --------------------------------------------------------
+        # INDIAN CONTRACT ACT, 1872
+        # --------------------------------------------------------
+
+        if re.search(
+            r"indian\s+contract\s+act[\s,]*1872",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Indian Contract Act, 1872"
+
+        if "indian_contract" in source_file.lower():
+            return "Indian Contract Act, 1872"
+
+        if "contract_act" in source_file.lower():
+            return "Indian Contract Act, 1872"
+
+        # --------------------------------------------------------
+        # MOTOR VEHICLES ACT, 1988
+        # --------------------------------------------------------
+
+        if re.search(
+            r"motor\s+vehicles?\s+act[\s,]*1988",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Motor Vehicles Act, 1988"
+
+        if "motor_vehicles" in source_file.lower():
+            return "Motor Vehicles Act, 1988"
+
+        # --------------------------------------------------------
+        # INSURANCE ACT, 1938
+        # --------------------------------------------------------
+
+        if re.search(
+            r"insurance\s+act[\s,]*1938",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Insurance Act, 1938"
+
+        if "insurance_act" in source_file.lower():
+            return "Insurance Act, 1938"
+
+        # --------------------------------------------------------
+        # FALLBACK
+        # --------------------------------------------------------
 
         return "Unknown Act"
 
@@ -67,6 +124,15 @@ class LegalParser:
 
         if "information technology" in act_lower:
             return "Cyber / IT"
+
+        if "indian contract" in act_lower:
+            return "Contract"
+
+        if "motor vehicles" in act_lower:
+            return "Motor"
+
+        if "insurance" in act_lower:
+            return "Insurance"
 
         return "General Legal"
 

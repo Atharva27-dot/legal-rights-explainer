@@ -127,6 +127,19 @@ class KeywordExtractor:
             "domestic",
             "family",
             "inheritance"
+        ],
+
+        "Contract": [
+            "contract",
+            "agreement",
+            "breach",
+            "breach of contract",
+            "contractual obligation",
+            "performance",
+            "non performance",
+            "non-performance",
+            "damages",
+            "compensation"
         ]
     }
 
@@ -244,6 +257,26 @@ class KeywordExtractor:
             "bank account",
             "electronic banking",
             "cyber fraud"
+        ],
+
+        "Breach of Contract": [
+            "breach of contract",
+            "breach",
+            "contract breach",
+            "breach of agreement",
+            "non performance",
+            "non-performance",
+            "failure to perform",
+            "failed to perform",
+            "did not perform",
+            "refused to perform",
+            "broken promise",
+            "contractual obligation",
+            "failure to fulfill",
+            "failure to fulfil",
+            "damages for breach",
+            "compensation for breach",
+            "contract damages"
         ]
     }
 
@@ -270,7 +303,6 @@ class KeywordExtractor:
                 and len(word) > 2
                 and word not in keywords
             ):
-
                 keywords.append(word)
 
         return keywords
@@ -288,7 +320,6 @@ class KeywordExtractor:
             return []
 
         if issue_type in self.ISSUE_KEYWORDS:
-
             return self.ISSUE_KEYWORDS[
                 issue_type
             ].copy()
@@ -302,7 +333,6 @@ class KeywordExtractor:
         ):
 
             if issue.lower() == normalized:
-
                 return keywords.copy()
 
         return []
@@ -320,7 +350,6 @@ class KeywordExtractor:
             return []
 
         if domain in self.DOMAIN_KEYWORDS:
-
             return self.DOMAIN_KEYWORDS[
                 domain
             ].copy()
@@ -334,7 +363,6 @@ class KeywordExtractor:
         ):
 
             if name.lower() == normalized:
-
                 return keywords.copy()
 
         return []
@@ -370,32 +398,20 @@ class KeywordExtractor:
 
         final_keywords = []
 
-        # Original query
         for keyword in basic_keywords:
 
             if keyword not in final_keywords:
+                final_keywords.append(keyword)
 
-                final_keywords.append(
-                    keyword
-                )
-
-        # Issue terms
         for keyword in issue_keywords:
 
             if keyword not in final_keywords:
+                final_keywords.append(keyword)
 
-                final_keywords.append(
-                    keyword
-                )
-
-        # Only limited domain vocabulary
         for keyword in domain_keywords[:4]:
 
             if keyword not in final_keywords:
-
-                final_keywords.append(
-                    keyword
-                )
+                final_keywords.append(keyword)
 
         return final_keywords
 
@@ -430,45 +446,28 @@ class KeywordExtractor:
 
         expanded = []
 
-        # Original query
         for word in basic_keywords:
 
             if word not in expanded:
+                expanded.append(word)
 
-                expanded.append(
-                    word
-                )
-
-        # Explicit issue
         for word in issue_keywords:
 
             if word not in expanded:
+                expanded.append(word)
 
-                expanded.append(
-                    word
-                )
-
-        # If issue is known, only add 3 domain terms.
-        # If issue is unknown, allow 6 domain terms.
         domain_limit = (
             3
             if issue_type
             else 6
         )
 
-        for word in domain_keywords[
-            :domain_limit
-        ]:
+        for word in domain_keywords[:domain_limit]:
 
             if word not in expanded:
+                expanded.append(word)
 
-                expanded.append(
-                    word
-                )
-
-        return " ".join(
-            expanded
-        )
+        return " ".join(expanded)
 
 
 keyword_extractor = KeywordExtractor()

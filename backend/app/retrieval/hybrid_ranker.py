@@ -2,6 +2,7 @@
 Issue-Aware Hybrid Legal Ranker
 
 Ranking combines:
+
 1. Semantic similarity
 2. Keyword matching
 3. Metadata relevance
@@ -172,10 +173,8 @@ class HybridRanker:
 
             if (
                 key in requested_domain
-                or
-                requested_domain in key
+                or requested_domain in key
             ):
-
                 accepted_domains = values
                 break
 
@@ -244,6 +243,16 @@ class HybridRanker:
             "section 43": 1.0,
             "section 66c": 0.80,
             "section 66d": 0.80
+        },
+
+        # --------------------------------------------------------
+        # CONTRACT
+        # --------------------------------------------------------
+
+        "breach of contract": {
+            "section 73": 1.00,
+            "section 74": 0.90,
+            "section 75": 0.80
         }
     }
 
@@ -311,7 +320,6 @@ class HybridRanker:
 
             for key, value
             in section_hints.items()
-
         }
 
         section_hint = (
@@ -356,7 +364,6 @@ class HybridRanker:
                     normalized_keyword
                     in searchable_text
                 ):
-
                     matched += 1
 
             keyword_ratio = (
@@ -389,7 +396,6 @@ class HybridRanker:
                 normalized_keyword
                 in title
             ):
-
                 title_matches += 1
 
         if title_matches > 0:
@@ -477,14 +483,9 @@ class HybridRanker:
             doc_lower = doc.lower()
 
             keyword_matches = sum(
-
                 1
-
                 for word in keywords
-
-                if word.lower()
-                in doc_lower
-
+                if word.lower() in doc_lower
             )
 
             keyword_score = (
