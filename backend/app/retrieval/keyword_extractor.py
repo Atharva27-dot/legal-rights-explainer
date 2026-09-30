@@ -89,18 +89,56 @@ class KeywordExtractor:
             "labor"
         ],
 
-        "Motor Vehicle": [
-            "motor vehicle",
-            "vehicle",
-            "road accident",
-            "traffic accident",
-            "motor accident",
-            "driver",
-            "insurance",
-            "compensation",
-            "injury",
-            "third party"
-        ],
+"Motor Vehicle": [
+    "motor vehicle",
+    "motor vehicles",
+    "motor accident",
+    "driving licence",
+    "driving license",
+    "driver licence",
+    "driver license",
+    "licence",
+    "license",
+    "driving",
+    "driver",
+    "police officer",
+    "police",
+    "produce licence",
+    "produce license",
+    "produce driving licence",
+    "produce driving license",
+    "show licence",
+    "show license",
+    "show driving licence",
+    "show driving license",
+    "demand by police",
+    "on demand",
+    "registration certificate",
+    "certificate of registration",
+    "permit",
+],
+
+"Right to Information": [
+    "right to information",
+    "rti",
+    "information",
+    "public information officer",
+    "pio",
+    "information officer",
+    "request for information",
+    "application",
+    "information denied",
+    "refusal",
+    "refused",
+    "delay",
+    "appeal",
+    "first appeal",
+    "second appeal",
+    "information commission",
+    "central information commission",
+    "state information commission",
+    "exemption",
+],
 
         "Property": [
             "property",
@@ -140,6 +178,20 @@ class KeywordExtractor:
             "non-performance",
             "damages",
             "compensation"
+        ],
+
+        "Criminal Law / BNS": [
+            "criminal offence",
+            "threat",
+            "threatening",
+            "intimidation",
+            "criminal intimidation",
+            "assault",
+            "theft",
+            "hurt",
+            "cheating",
+            "defamation",
+            "bharatiya nyaya sanhita"
         ]
     }
 
@@ -148,6 +200,56 @@ class KeywordExtractor:
     # ============================================================
 
     ISSUE_KEYWORDS = {
+
+        "Threat / Intimidation": [
+            "threat",
+            "threatening",
+            "intimidation",
+            "criminal intimidation",
+            "threatened",
+            "harm",
+            "threaten me",
+            "threat to life",
+            "threat to property",
+            "fear",
+            "alarm",
+            "injury to person"
+        ],
+
+        "Theft": [
+            "theft",
+            "stealing",
+            "stolen",
+            "dishonestly taking",
+            "moveable property"
+        ],
+
+        "Assault": [
+            "assault",
+            "criminal force",
+            "use of force"
+        ],
+
+        "Cheating": [
+            "cheating",
+            "deceiving",
+            "fraudulent inducement",
+            "dishonestly induce"
+        ],
+
+        "Hurt": [
+            "hurt",
+            "bodily pain",
+            "grievous hurt",
+            "injury"
+        ],
+
+        "Defamation": [
+            "defamation",
+            "defamatory",
+            "reputation",
+            "harming reputation"
+        ],
 
         "Defective Product": [
             "defect",

@@ -1,38 +1,11 @@
-"""
-Domain-aware and issue-aware semantic legal retriever.
-
-Pipeline:
-
-    User Query
-        ↓
-    Legal Domain
-        ↓
-    Specific Legal Issue
-        ↓
-    Issue-aware Keyword Extraction
-        ↓
-    Controlled Query Expansion
-        ↓
-    Embedding
-        ↓
-    ChromaDB
-        ↓
-    Top-K Legal Documents
-"""
-
 import chromadb
 
 from app.rag.embedder import EmbeddingGenerator
-from app.retrieval.keyword_extractor import KeywordExtractor
 
 
 class LegalRetriever:
 
     def __init__(self):
-
-        # ========================================================
-        # CHROMA DATABASE
-        # ========================================================
 
         self.client = chromadb.PersistentClient(
             path="chroma_db"
@@ -42,17 +15,179 @@ class LegalRetriever:
             "legal_documents"
         )
 
-        # ========================================================
-        # EMBEDDING MODEL
-        # ========================================================
-
         self.embedder = EmbeddingGenerator()
 
-        # ========================================================
-        # ISSUE-AWARE KEYWORD EXTRACTOR
-        # ========================================================
+    # ============================================================
+    # DOMAIN NORMALIZATION
+    # ============================================================
 
-        self.keyword_extractor = KeywordExtractor()
+    DOMAIN_MAP = {
+
+        # --------------------------------------------------------
+        # CONSUMER
+        # --------------------------------------------------------
+
+        "consumer protection":
+            "Consumer Protection",
+
+        # --------------------------------------------------------
+        # CYBER / IT
+        # --------------------------------------------------------
+
+        "cyber / it":
+            "Cyber / IT",
+
+        "cyber/it":
+            "Cyber / IT",
+
+        "cyber it":
+            "Cyber / IT",
+
+        # --------------------------------------------------------
+        # CONTRACT
+        # --------------------------------------------------------
+
+        "contract":
+            "Contract",
+
+        "contract / service":
+            "Contract",
+
+        "contract/service":
+            "Contract",
+
+        "contract service":
+            "Contract",
+
+        # --------------------------------------------------------
+        # MOTOR VEHICLE
+        # --------------------------------------------------------
+
+        "motor vehicle":
+            "Motor Vehicle",
+
+        "motor vehicle / road accident":
+            "Motor Vehicle",
+
+        "motor vehicle/road accident":
+            "Motor Vehicle",
+
+        "motor vehicle road accident":
+            "Motor Vehicle",
+
+        # --------------------------------------------------------
+        # RTI
+        # --------------------------------------------------------
+
+        "right to information":
+            "Right to Information",
+
+        "rti":
+            "Right to Information",
+
+        # --------------------------------------------------------
+        # RERA
+        # --------------------------------------------------------
+
+        "real estate / rera":
+            "Real Estate / RERA",
+
+        "real estate/rera":
+            "Real Estate / RERA",
+
+        "real estate":
+            "Real Estate / RERA",
+
+        "rera":
+            "Real Estate / RERA",
+
+        # --------------------------------------------------------
+        # DOMESTIC VIOLENCE
+        # --------------------------------------------------------
+
+        "domestic violence":
+            "Domestic Violence",
+
+        # --------------------------------------------------------
+        # LEGAL SERVICES
+        # --------------------------------------------------------
+
+        "legal services / legal aid":
+            "Legal Services / Legal Aid",
+
+        "legal services/legal aid":
+            "Legal Services / Legal Aid",
+
+        "legal services":
+            "Legal Services / Legal Aid",
+
+        "legal aid":
+            "Legal Services / Legal Aid",
+
+        # --------------------------------------------------------
+        # CRIMINAL LAW / BNS
+        # --------------------------------------------------------
+
+        "criminal law / bns":
+            "Criminal Law / BNS",
+
+        "criminal law/bns":
+            "Criminal Law / BNS",
+
+        "criminal law":
+            "Criminal Law / BNS",
+
+        "bns":
+            "Criminal Law / BNS",
+
+        # --------------------------------------------------------
+        # INSURANCE
+        # --------------------------------------------------------
+
+        "insurance":
+            "Insurance",
+
+        "insurance / financial":
+            "Insurance",
+
+        # --------------------------------------------------------
+        # EMPLOYMENT
+        # --------------------------------------------------------
+
+        "employment / labour":
+            "Employment / Labour",
+
+        "employment/labour":
+            "Employment / Labour",
+
+        "employment":
+            "Employment / Labour",
+
+        "labour":
+            "Employment / Labour",
+    }
+
+    # ============================================================
+    # NORMALIZE DOMAIN
+    # ============================================================
+
+    def normalize_domain(
+        self,
+        domain
+    ):
+
+        if not domain:
+
+            return None
+
+        domain_key = str(
+            domain
+        ).strip().lower()
+
+        return self.DOMAIN_MAP.get(
+            domain_key,
+            str(domain).strip()
+        )
 
     # ============================================================
     # QUERY EXPANSION
@@ -60,80 +195,421 @@ class LegalRetriever:
 
     def expand_query(
         self,
-        query: str,
-        domain: str | None = None,
-        issue_type: str | None = None
+        query: str
     ):
-        """
-        Build a controlled legal query.
 
-        Priority:
-
-            Original user query
-                ↓
-            Issue-specific vocabulary
-                ↓
-            Limited domain vocabulary
-
-        This prevents broad domain terms from overwhelming
-        a specific legal issue.
-        """
-
-        # ========================================================
-        # ISSUE-AWARE EXPANSION
-        # ========================================================
-
-        expanded_query = (
-            self.keyword_extractor.expand_query(
-                query=query,
-                domain=domain,
-                issue_type=issue_type
-            )
+        query_lower = (
+            str(query)
+            .lower()
         )
 
-        # ========================================================
-        # DISPLAY INFORMATION
-        # ========================================================
-
-        print()
-        print(
-            "=============================="
-        )
-        print(
-            "DOMAIN-AWARE QUERY"
-        )
-        print(
-            "=============================="
-        )
-
-        print(
-            "Legal Domain:",
-            domain or "Not specified"
-        )
-
-        print(
-            "Specific Legal Issue:",
-            issue_type or "Not specified"
-        )
-
-        print(
-            "Original Query:"
-        )
-
-        print(
+        expanded = str(
             query
         )
 
-        print()
-        print(
-            "Expanded Query:"
-        )
+        # --------------------------------------------------------
+        # GENERAL LEGAL QUERIES
+        # --------------------------------------------------------
 
-        print(
-            expanded_query
-        )
+        if (
+            "who is" in query_lower
+            or
+            "what is" in query_lower
+        ):
 
-        return expanded_query
+            expanded += (
+                " definition meaning"
+            )
+
+        # --------------------------------------------------------
+        # CONSUMER
+        # --------------------------------------------------------
+
+        if "consumer" in query_lower:
+
+            expanded += (
+                " consumer protection "
+                "consumer rights "
+                "defective goods "
+                "deficiency in service "
+                "redressal"
+            )
+
+        if "defective" in query_lower:
+
+            expanded += (
+                " defective product "
+                "defect in goods "
+                "replacement "
+                "refund "
+                "compensation "
+                "consumer commission"
+            )
+
+        if "refund" in query_lower:
+
+            expanded += (
+                " refund "
+                "return price "
+                "consumer complaint"
+            )
+
+        if "replacement" in query_lower:
+
+            expanded += (
+                " replacement of goods "
+                "defective goods "
+                "consumer complaint"
+            )
+
+        if "complaint" in query_lower:
+
+            expanded += (
+                " file complaint "
+                "district commission "
+                "redressal"
+            )
+
+        if "appeal" in query_lower:
+
+            expanded += (
+                " appeal procedure "
+                "appeal commission"
+            )
+
+        # --------------------------------------------------------
+        # CYBER / IT
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "cyber",
+                "unauthorized access",
+                "unauthorised access",
+                "hacking",
+                "computer access",
+            ]
+        ):
+
+            expanded += """
+
+unauthorized access
+unauthorised access
+computer resource
+computer system
+access without permission
+damage to computer
+Information Technology Act
+Section 43
+"""
+
+        if any(
+            word in query_lower
+            for word in [
+                "identity theft",
+                "stolen identity",
+                "stolen credentials",
+                "account credentials",
+            ]
+        ):
+
+            expanded += """
+
+identity theft
+fraudulent use of password
+electronic signature
+unique identification feature
+Information Technology Act
+Section 66C
+"""
+
+        if any(
+            word in query_lower
+            for word in [
+                "cheating",
+                "personation",
+                "impersonation",
+                "fake account",
+            ]
+        ):
+
+            expanded += """
+
+cheating by personation
+personation using computer resource
+fraud
+electronic communication
+Information Technology Act
+Section 66D
+"""
+
+        if any(
+            word in query_lower
+            for word in [
+                "upi",
+                "online payment",
+                "payment fraud",
+                "online fraud",
+            ]
+        ):
+
+            expanded += """
+
+UPI fraud
+online payment fraud
+electronic transaction
+computer resource
+Information Technology Act
+Section 43
+"""
+
+        # --------------------------------------------------------
+        # MOTOR VEHICLE
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "accident",
+                "vehicle",
+                "motor",
+                "driving",
+                "licence",
+                "license",
+            ]
+        ):
+
+            expanded += (
+                " motor vehicle "
+                "road accident "
+                "compensation "
+                "driver "
+                "vehicle liability"
+            )
+
+        # --------------------------------------------------------
+        # CONTRACT
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "contract",
+                "agreement",
+                "breach",
+                "contractual",
+                "obligation",
+            ]
+        ):
+
+            expanded += """
+
+Indian Contract Act 1872
+contract
+agreement
+breach of contract
+failure to perform
+contractual obligations
+compensation
+damages
+Section 73
+Section 74
+"""
+
+        # --------------------------------------------------------
+        # RTI
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "rti",
+                "right to information",
+                "information denied",
+                "information refused",
+                "information refusal",
+                "public information officer",
+                "pio",
+            ]
+        ):
+
+            expanded += """
+
+Right to Information Act 2005
+information denied
+refusal of information
+Public Information Officer
+PIO
+appeal
+first appeal
+second appeal
+Information Commission
+Section 7
+Section 8
+Section 9
+Section 19
+"""
+
+        # --------------------------------------------------------
+        # RERA
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "rera",
+                "builder",
+                "real estate",
+                "delayed possession",
+                "property builder",
+            ]
+        ):
+
+            expanded += """
+
+Real Estate Regulation and Development Act 2016
+RERA
+real estate regulatory authority
+builder
+promoter
+delayed possession
+complaint
+refund
+compensation
+"""
+
+        # --------------------------------------------------------
+        # DOMESTIC VIOLENCE
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "domestic violence",
+                "protection order",
+                "residence order",
+                "monetary relief",
+                "protection officer",
+            ]
+        ):
+
+            expanded += """
+
+Protection of Women from Domestic Violence Act 2005
+domestic violence
+protection order
+residence order
+monetary relief
+protection officer
+magistrate
+"""
+
+        # --------------------------------------------------------
+        # LEGAL AID
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "legal aid",
+                "free legal aid",
+                "legal services",
+                "lok adalat",
+            ]
+        ):
+
+            expanded += """
+
+Legal Services Authorities Act 1987
+free legal services
+legal aid
+Legal Services Authority
+Lok Adalat
+legal representation
+"""
+
+        # --------------------------------------------------------
+        # CRIMINAL LAW / BNS
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "threat",
+                "threatening",
+                "intimidation",
+                "criminal intimidation",
+                "threatened",
+                "harm",
+                "fear",
+                "alarm",
+            ]
+        ):
+
+            expanded += """
+
+Bharatiya Nyaya Sanhita 2023
+criminal intimidation
+threat
+threatening
+injury to person
+harm
+alarm
+Section 351
+Section 352
+"""
+
+        if any(
+            word in query_lower
+            for word in [
+                "criminal offence",
+                "theft",
+                "assault",
+                "hurt",
+                "cheating",
+                "sexual offence",
+                "defamation",
+            ]
+        ):
+
+            expanded += """
+
+Bharatiya Nyaya Sanhita 2023
+criminal offence
+theft
+assault
+hurt
+criminal intimidation
+cheating
+defamation
+"""
+
+        # --------------------------------------------------------
+        # EMPLOYMENT
+        # --------------------------------------------------------
+
+        if any(
+            word in query_lower
+            for word in [
+                "salary",
+                "employee",
+                "employer",
+                "labour",
+                "labor",
+                "wages",
+            ]
+        ):
+
+            expanded += (
+                " employment "
+                "labour "
+                "wages "
+                "workplace "
+                "employment dispute"
+            )
+
+        return expanded
 
     # ============================================================
     # SEARCH
@@ -147,53 +623,57 @@ class LegalRetriever:
         issue_type=None
     ):
         """
-        Perform domain-aware and issue-aware semantic retrieval.
+        Perform domain-aware semantic retrieval.
 
-        Parameters
-        ----------
-        query:
-            User's original legal question.
+        The frontend may use labels such as:
+            Contract / Service
 
-        top_k:
-            Number of documents to retrieve.
+        while ChromaDB stores:
+            Contract
 
-        domain:
-            Selected legal domain.
-
-        issue_type:
-            Selected specific legal issue.
-
-        Returns
-        -------
-        ChromaDB result dictionary.
+        Therefore the domain is normalized before applying
+        the Chroma metadata filter.
         """
 
-        # ========================================================
-        # QUERY EXPANSION
-        # ========================================================
-
-        expanded_query = self.expand_query(
-
-            query=query,
-
-            domain=domain,
-
-            issue_type=issue_type
-
+        normalized_domain = (
+            self.normalize_domain(
+                domain
+            )
         )
 
-        # ========================================================
-        # REQUEST INFORMATION
-        # ========================================================
+        expanded_query = (
+            self.expand_query(
+                query
+            )
+        )
 
         print()
+        print("=" * 70)
+        print("DOMAIN-AWARE RETRIEVAL")
+        print("=" * 70)
+
         print(
-            "Requested Legal Domain:",
+            "Original Query:",
+            query
+        )
+
+        print(
+            "Expanded Query:",
+            expanded_query
+        )
+
+        print(
+            "Requested Domain:",
             domain or "Not specified"
         )
 
         print(
-            "Requested Legal Issue:",
+            "Normalized Chroma Domain:",
+            normalized_domain or "None"
+        )
+
+        print(
+            "Issue Type:",
             issue_type or "Not specified"
         )
 
@@ -213,14 +693,15 @@ class LegalRetriever:
 
         where = None
 
-        if domain:
+        if normalized_domain:
 
             where = {
-                "domain": domain
+                "domain":
+                    normalized_domain
             }
 
         # ========================================================
-        # CHROMA SEARCH
+        # CHROMA RETRIEVAL
         # ========================================================
 
         try:
@@ -238,30 +719,31 @@ class LegalRetriever:
             )
 
             # ====================================================
-            # DOMAIN FALLBACK
+            # CHECK EMPTY RESULT
             # ====================================================
 
+            documents = results.get(
+                "documents",
+                [[]]
+            )
+
             if (
-                domain
+                normalized_domain
                 and
                 (
-                    not results.get(
-                        "documents"
-                    )
+                    not documents
                     or
-                    not results[
-                        "documents"
-                    ][0]
+                    not documents[0]
                 )
             ):
 
-                print()
                 print(
-                    "No documents found for selected domain."
+                    "No documents found for domain:",
+                    normalized_domain
                 )
 
                 print(
-                    "Falling back to global semantic retrieval."
+                    "Falling back to global retrieval."
                 )
 
                 results = self.collection.query(
@@ -276,12 +758,8 @@ class LegalRetriever:
 
         except Exception as exc:
 
-            print()
             print(
-                "Domain-filtered retrieval failed:"
-            )
-
-            print(
+                "Domain-filtered retrieval failed:",
                 exc
             )
 
@@ -297,115 +775,6 @@ class LegalRetriever:
 
                 n_results=top_k
 
-            )
-
-        # ========================================================
-        # RETRIEVAL DEBUG INFORMATION
-        # ========================================================
-
-        print()
-        print(
-            "=============================="
-        )
-
-        print(
-            "SEMANTIC RETRIEVAL"
-        )
-
-        print(
-            "=============================="
-        )
-
-        documents = results.get(
-            "documents",
-            [[]]
-        )
-
-        metadatas = results.get(
-            "metadatas",
-            [[]]
-        )
-
-        distances = results.get(
-            "distances",
-            [[]]
-        )
-
-        if (
-            documents
-            and
-            documents[0]
-        ):
-
-            for index, metadata in enumerate(
-                metadatas[0]
-            ):
-
-                section = metadata.get(
-                    "section",
-                    "Unknown"
-                )
-
-                title = metadata.get(
-                    "title",
-                    ""
-                )
-
-                domain_name = metadata.get(
-                    "domain",
-                    ""
-                )
-
-                distance = None
-
-                if (
-                    distances
-                    and
-                    distances[0]
-                    and
-                    index < len(
-                        distances[0]
-                    )
-                ):
-
-                    distance = distances[
-                        0
-                    ][index]
-
-                print()
-                print(
-                    f"Rank {index + 1}"
-                )
-
-                print(
-                    "Section:",
-                    section
-                )
-
-                print(
-                    "Title:",
-                    title
-                )
-
-                print(
-                    "Domain:",
-                    domain_name
-                )
-
-                if distance is not None:
-
-                    print(
-                        "Distance:",
-                        round(
-                            distance,
-                            4
-                        )
-                    )
-
-        else:
-
-            print(
-                "No documents retrieved."
             )
 
         return results
