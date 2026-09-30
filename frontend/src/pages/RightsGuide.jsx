@@ -24,6 +24,7 @@ const issuesByDomain = {
     "Unfair Trade Practice",
     "Product Liability",
   ],
+
   "Cyber / IT": [
     "UPI Fraud",
     "Unauthorized Access",
@@ -31,29 +32,71 @@ const issuesByDomain = {
     "Online Payment Fraud",
     "Cyber Crime",
   ],
-  "Employment / Labour": [
-    "Wrongful Termination",
-    "Unpaid Salary",
-    "Workplace Rights",
-    "Employment Dispute",
+
+  "Contract / Service": [
+    "Breach of Contract",
+    "Non-Payment",
+    "Contractual Dispute",
+    "Service Agreement Dispute",
   ],
-  Property: [
-    "Property Dispute",
-    "Landlord Tenant Dispute",
-    "Ownership Dispute",
-    "Property Transfer",
-  ],
-  "Family Law": [
-    "Divorce",
-    "Maintenance",
-    "Child Custody",
-    "Domestic Dispute",
-  ],
+
   "Motor Vehicle": [
+    "Driving Licence",
     "Road Accident",
+    "Traffic Dispute",
     "Motor Insurance Claim",
     "Vehicle Compensation",
-    "Traffic Dispute",
+    "Vehicle Registration",
+    "Permit Dispute",
+  ],
+
+  "Right to Information": [
+    "Request for Information",
+    "Information Denied",
+    "Delay in Information",
+    "RTI Appeal",
+    "Public Information Officer",
+    "Exempt Information",
+  ],
+
+  "Real Estate / RERA": [
+    "Delayed Possession",
+    "Builder Dispute",
+    "Project Registration",
+    "Real Estate Agent",
+    "Defective Construction",
+    "Refund from Builder",
+    "RERA Complaint",
+  ],
+
+  "Domestic Violence": [
+    "Domestic Violence",
+    "Protection Order",
+    "Residence Order",
+    "Monetary Relief",
+    "Custody Order",
+    "Compensation",
+    "Protection Officer",
+  ],
+
+  "Legal Services / Legal Aid": [
+    "Free Legal Aid",
+    "Eligibility for Legal Aid",
+    "Legal Services Authority",
+    "Lok Adalat",
+    "Legal Aid Application",
+    "Legal Representation",
+  ],
+
+  "Criminal Law / BNS": [
+    "Criminal Offence",
+    "Threat / Intimidation",
+    "Theft",
+    "Assault",
+    "Cheating",
+    "Hurt",
+    "Sexual Offence",
+    "Defamation",
   ],
 };
 

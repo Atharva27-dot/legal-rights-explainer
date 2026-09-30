@@ -42,6 +42,12 @@ class LegalVectorStore:
         "payment and settlement systems act":
             "Banking / Financial",
 
+        "right to information act, 2005":
+            "Right to Information",
+
+        "right to information act":
+            "Right to Information",
+
         "insurance":
             "Insurance / Financial",
 
@@ -130,7 +136,7 @@ class LegalVectorStore:
             word in combined
             for word in [
                 "motor vehicle",
-                "motor vehicles",
+                "motor vehicle",
                 "road accident"
             ]
         ):

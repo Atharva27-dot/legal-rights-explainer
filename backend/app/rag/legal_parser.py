@@ -90,7 +90,87 @@ class LegalParser:
 
         if "motor_vehicles" in source_file.lower():
             return "Motor Vehicles Act, 1988"
+        # --------------------------------------------------------
+        # RIGHT TO INFORMATION ACT, 2005
+        # --------------------------------------------------------
 
+        if re.search(
+            r"right\s+to\s+information\s+act[\s,]*2005",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Right to Information Act, 2005"
+
+        if "right_to_information" in source_file.lower():
+            return "Right to Information Act, 2005"
+
+        # --------------------------------------------------------
+        # REAL ESTATE (REGULATION AND DEVELOPMENT) ACT, 2016
+        # --------------------------------------------------------
+
+        if re.search(
+            r"real\s+estate\s*\(\s*regulation\s+and\s+development\s*\)\s*act[\s,]*2016",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Real Estate (Regulation and Development) Act, 2016"
+
+        if "real_estate_regulation_and_development" in source_file.lower():
+            return "Real Estate (Regulation and Development) Act, 2016"
+
+        if "rera" in source_file.lower():
+            return "Real Estate (Regulation and Development) Act, 2016"
+
+        # --------------------------------------------------------
+        # PROTECTION OF WOMEN FROM DOMESTIC VIOLENCE ACT, 2005
+        # --------------------------------------------------------
+
+        if re.search(
+            r"protection\s+of\s+women\s+from\s+domestic\s+violence\s+act[\s,]*2005",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Protection of Women from Domestic Violence Act, 2005"
+
+        if "protection_of_women_from_domestic_violence" in source_file.lower():
+            return "Protection of Women from Domestic Violence Act, 2005"
+
+        if "domestic_violence" in source_file.lower():
+            return "Protection of Women from Domestic Violence Act, 2005"
+
+        # --------------------------------------------------------
+        # LEGAL SERVICES AUTHORITIES ACT, 1987
+        # --------------------------------------------------------
+
+        if re.search(
+            r"legal\s+services\s+authorities\s+act[\s,]*1987",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Legal Services Authorities Act, 1987"
+
+        if "legal_services_authorities" in source_file.lower():
+            return "Legal Services Authorities Act, 1987"
+
+        if "legal_services" in source_file.lower():
+            return "Legal Services Authorities Act, 1987"
+
+        # --------------------------------------------------------
+        # BHARATIYA NYAYA SANHITA, 2023
+        # --------------------------------------------------------
+
+        if re.search(
+            r"bharatiya\s+nyaya\s+sanhita[\s,]*2023",
+            combined,
+            flags=re.IGNORECASE
+        ):
+            return "Bharatiya Nyaya Sanhita, 2023"
+
+        if "bharatiya_nyaya_sanhita" in source_file.lower():
+            return "Bharatiya Nyaya Sanhita, 2023"
+
+        if "nyaya_sanhita" in source_file.lower():
+            return "Bharatiya Nyaya Sanhita, 2023"
         # --------------------------------------------------------
         # INSURANCE ACT, 1938
         # --------------------------------------------------------
@@ -128,8 +208,23 @@ class LegalParser:
         if "indian contract" in act_lower:
             return "Contract"
 
-        if "motor vehicles" in act_lower:
-            return "Motor"
+        if "motor vehicle" in act_lower:
+            return "Motor Vehicle"
+
+        if "right to information" in act_lower:
+            return "Right to Information"
+
+        if "real estate" in act_lower:
+            return "Real Estate / RERA"
+
+        if "domestic violence" in act_lower:
+            return "Domestic Violence"
+
+        if "legal services authorities" in act_lower:
+            return "Legal Services / Legal Aid"
+
+        if "bharatiya nyaya sanhita" in act_lower:
+            return "Criminal Law / BNS"
 
         if "insurance" in act_lower:
             return "Insurance"
