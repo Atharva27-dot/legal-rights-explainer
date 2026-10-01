@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  FaCheckCircle,
-  FaChevronDown,
-  FaChevronUp,
-  FaClock,
-  FaDatabase,
-  FaRobot,
-} from "react-icons/fa";
+import { Clock, Database, Cpu, CheckCircle2, ChevronDown, ChevronUp, Activity } from "lucide-react";
 
 export default function StatsCard({
   confidence,
@@ -19,128 +12,77 @@ export default function StatsCard({
   if (!confidence) return null;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-
-      <div className="px-6 py-5">
-
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="p-4 sm:p-5">
         <div className="flex items-center justify-between gap-4">
-
           <div className="flex items-center gap-3">
-
-            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
-              <FaClock />
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Activity className="w-4 h-4 text-indigo-600" />
             </div>
-
             <div>
-              <h2 className="font-bold text-slate-900">
-                System Performance
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Technical details about this response
+              <h3 className="font-bold text-slate-900 text-sm">
+                RAG Pipeline Performance
+              </h3>
+              <p className="text-xs text-slate-500">
+                Response generation timing & confidence
               </p>
             </div>
-
           </div>
 
           <button
             type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="flex items-center gap-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+            onClick={() => setExpanded((prev) => !prev)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
           >
-            {expanded ? "Hide details" : "Technical details"}
-
-            {expanded ? <FaChevronUp /> : <FaChevronDown />}
+            <span>{expanded ? "Hide timing breakdown" : "View timing breakdown"}</span>
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
-
         </div>
 
-        {/* Simple citizen-facing summary */}
-        <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl p-4">
-
+        {/* Citizen summary pill */}
+        <div className="mt-4 grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200/80 rounded-xl p-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Response completed
-            </p>
-
-            <p className="text-2xl font-bold text-slate-900 mt-1">
-              {total_time} sec
-            </p>
+            <p className="text-[11px] font-semibold uppercase text-slate-400">Total Latency</p>
+            <p className="text-lg font-black text-slate-900 mt-0.5">{total_time} sec</p>
           </div>
-
-          <div className="flex items-center gap-2">
-
-            <FaCheckCircle className="text-emerald-600" />
-
-            <div>
-              <p className="text-xs text-slate-500">
-                Retrieval confidence
-              </p>
-
-              <p className="font-semibold text-slate-800">
-                {confidence}
-              </p>
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-slate-400">Retrieval Confidence</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span className="font-bold text-slate-800 text-sm">{confidence}</span>
             </div>
-
           </div>
-
         </div>
 
+        {/* Expanded stats */}
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-slate-200/80 grid grid-cols-3 gap-3 text-center">
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 font-medium">
+                <Database className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Vector Search</span>
+              </div>
+              <p className="font-bold text-slate-800 text-sm mt-1">{retrieval_time} s</p>
+            </div>
+
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 font-medium">
+                <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                <span>LLM Generation</span>
+              </div>
+              <p className="font-bold text-slate-800 text-sm mt-1">{llm_time} s</p>
+            </div>
+
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div className="flex items-center justify-center gap-1 text-xs text-slate-500 font-medium">
+                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Total Execution</span>
+              </div>
+              <p className="font-bold text-slate-800 text-sm mt-1">{total_time} s</p>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Technical details */}
-      {expanded && (
-        <div className="border-t border-slate-200 bg-slate-50 p-6">
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
-              <FaDatabase className="text-blue-700 text-xl mb-3" />
-
-              <p className="text-xs text-slate-500">
-                Retrieval
-              </p>
-
-              <p className="text-xl font-bold text-slate-900 mt-1">
-                {retrieval_time} sec
-              </p>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
-              <FaRobot className="text-violet-700 text-xl mb-3" />
-
-              <p className="text-xs text-slate-500">
-                AI Generation
-              </p>
-
-              <p className="text-xl font-bold text-slate-900 mt-1">
-                {llm_time} sec
-              </p>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-4">
-              <FaClock className="text-orange-600 text-xl mb-3" />
-
-              <p className="text-xs text-slate-500">
-                Total
-              </p>
-
-              <p className="text-xl font-bold text-slate-900 mt-1">
-                {total_time} sec
-              </p>
-            </div>
-
-          </div>
-
-          <div className="mt-4 text-xs text-slate-500">
-            Performance metrics are provided for transparency and debugging.
-            They do not represent legal confidence or the probability of a
-            legal outcome.
-          </div>
-
-        </div>
-      )}
-
     </div>
   );
 }

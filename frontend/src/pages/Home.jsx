@@ -1,13 +1,12 @@
 import { useState } from "react";
-
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
+import AppShell from "../components/AppShell";
 import ChatInput from "../components/ChatInput";
 import ChatWindow from "../components/ChatWindow";
 import Loader from "../components/Loader";
 import WelcomeScreen from "../components/WelcomeScreen";
-
 import { askQuestion } from "../services/api";
+import { Sparkles, ShieldCheck, HelpCircle } from "lucide-react";
+import toast from "react-hot-toast";
 
 export default function Home() {
   const [question, setQuestion] = useState("");
@@ -43,13 +42,12 @@ export default function Home() {
       setQuestion("");
     } catch (error) {
       console.error(error);
-
       if (error.response) {
-        alert(`Backend Error: ${error.response.status}`);
+        toast.error(`Backend Error: ${error.response.status}`);
       } else if (error.request) {
-        alert("Cannot connect to backend. Is FastAPI running?");
+        toast.error("Cannot connect to legal assistant backend. Is FastAPI running on port 8000?");
       } else {
-        alert(error.message);
+        toast.error(error.message || "An unexpected error occurred.");
       }
     } finally {
       setLoading(false);
@@ -57,67 +55,50 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Navbar />
-
-      <main className="max-w-[1500px] mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[270px_minmax(0,1fr)] gap-6 xl:gap-8 items-start">
-
-          <aside className="lg:sticky lg:top-6">
-            <Sidebar />
-          </aside>
-
-          <section className="min-w-0 space-y-6">
-
-            {/* Page heading */}
-            <div className="bg-white border border-slate-200 rounded-3xl shadow-sm px-6 py-5">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-                <div>
-                  <p className="text-sm font-semibold text-indigo-700">
-                    LEGAL ASSISTANT
-                  </p>
-
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
-                    Understand your legal rights
-                  </h1>
-
-                  <p className="text-slate-500 mt-2">
-                    Ask a legal question in simple language and get an
-                    explanation grounded in the uploaded legal documents.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 self-start sm:self-center bg-emerald-50 border border-emerald-200 rounded-full px-3 py-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-700">
-                    AI Online
-                  </span>
-                </div>
-
-              </div>
+    <AppShell>
+      <div className="space-y-6">
+        {/* Page Top Heading Banner */}
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 tracking-wider uppercase mb-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Legal RAG Assistant</span>
             </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Plain-Language Legal Rights Assistant
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Ask any question to retrieve statutory provisions, understand citizen remedies, and view confidence metrics.
+            </p>
+          </div>
 
-            <ChatInput
-              question={question}
-              setQuestion={setQuestion}
-              loading={loading}
-              handleAsk={handleAsk}
-            />
-
-            {loading && <Loader />}
-
-            {!loading && messages.length === 0 && (
-              <WelcomeScreen setQuestion={setQuestion} />
-            )}
-
-            {!loading && messages.length > 0 && (
-              <ChatWindow messages={messages} />
-            )}
-
-          </section>
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5 self-start sm:self-center">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="text-xs font-bold text-emerald-700">RAG Engine Ready</span>
+          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Question Input Box */}
+        <ChatInput
+          question={question}
+          setQuestion={setQuestion}
+          loading={loading}
+          handleAsk={handleAsk}
+        />
+
+        {/* Loader State */}
+        {loading && <Loader />}
+
+        {/* Welcome Screen when idle */}
+        {!loading && messages.length === 0 && (
+          <WelcomeScreen setQuestion={setQuestion} />
+        )}
+
+        {/* Messages / AI Response Stream */}
+        {!loading && messages.length > 0 && (
+          <ChatWindow messages={messages} />
+        )}
+      </div>
+    </AppShell>
   );
 }

@@ -1,39 +1,38 @@
 import { useEffect, useState } from "react";
 import {
-  FaClipboardList,
-  FaCopy,
-  FaDownload,
-  FaSave,
-  FaCheckCircle,
-  FaEdit,
-  FaUndo,
-} from "react-icons/fa";
+  FileText,
+  Copy,
+  Download,
+  Save,
+  CheckCircle2,
+  Edit,
+  Undo,
+  Check,
+  AlertTriangle,
+  Clock,
+  ShieldCheck,
+  Award,
+  Layers,
+  Sparkles,
+  ArrowRight,
+  AlertCircle
+} from "lucide-react";
 import toast from "react-hot-toast";
-
-import {
-  downloadComplaintPDF,
-  saveCase,
-} from "../services/api";
-
-/* ============================================================
-   TIMELINE TYPE BADGE
-   ============================================================ */
+import { downloadComplaintPDF, saveCase } from "../services/api";
 
 function TimelineTypeBadge({ type }) {
   const config = {
     USER_REPORTED: {
       label: "USER REPORTED",
-      className: "bg-blue-100 text-blue-800 border-blue-200",
+      className: "bg-blue-50 text-blue-700 border-blue-200",
     },
-
     EVIDENCE_DERIVED: {
       label: "EVIDENCE DERIVED",
-      className: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
-
     DERIVED: {
       label: "DERIVED",
-      className: "bg-amber-100 text-amber-800 border-amber-200",
+      className: "bg-amber-50 text-amber-700 border-amber-200",
     },
   };
 
@@ -43,17 +42,11 @@ function TimelineTypeBadge({ type }) {
   };
 
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-xs font-semibold ${item.className}`}
-    >
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-md border text-[10px] font-bold ${item.className}`}>
       {item.label}
     </span>
   );
 }
-
-/* ============================================================
-   MAIN COMPONENT
-   ============================================================ */
 
 export default function ComplaintPreview({ caseData }) {
   const [saving, setSaving] = useState(false);
@@ -61,6 +54,7 @@ export default function ComplaintPreview({ caseData }) {
   const [caseId, setCaseId] = useState("");
   const [editing, setEditing] = useState(false);
   const [editedComplaint, setEditedComplaint] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (caseData?.report?.complaint) {
@@ -73,55 +67,33 @@ export default function ComplaintPreview({ caseData }) {
 
   if (!caseData) {
     return (
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-12 text-center">
-        <div className="text-6xl mb-5">📝</div>
-
-        <h2 className="text-2xl font-bold text-slate-700">
-          Complaint Preview
-        </h2>
-
-        <p className="text-slate-500 mt-4">
-          Generate a complaint to preview and edit it here.
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-12 text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-xs">
+          <FileText className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">
+          Complaint Draft Preview
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+          Fill out the case form above and click "Generate Complaint Draft" to preview the structured complaint, legal readiness score, timeline, and action plan here.
         </p>
       </div>
     );
   }
 
   const { formData, report } = caseData;
-
   const readiness = report?.readiness || {};
   const caseAnalysis = report?.case_analysis || {};
   const grounding = report?.grounding || {};
-
-  /* ============================================================
-     TIMELINE DATA
-     ============================================================ */
-
   const timeline = report?.timeline || {};
-
-  const timelineEvents = Array.isArray(timeline.events)
-    ? timeline.events
-    : [];
-
-  const timelineConflicts = Array.isArray(timeline.conflicts)
-    ? timeline.conflicts
-    : [];
-
-  const complaintText =
-    editedComplaint || report?.complaint || "";
-
-  /* ============================================================
-     CURRENT REPORT
-     ============================================================ */
+  const timelineEvents = Array.isArray(timeline.events) ? timeline.events : [];
+  const timelineConflicts = Array.isArray(timeline.conflicts) ? timeline.conflicts : [];
+  const complaintText = editedComplaint || report?.complaint || "";
 
   const getCurrentReport = () => ({
     ...report,
     complaint: complaintText,
   });
-
-  /* ============================================================
-     EDIT HANDLERS
-     ============================================================ */
 
   const handleEdit = () => {
     setEditing(true);
@@ -135,1304 +107,387 @@ export default function ComplaintPreview({ caseData }) {
 
   const handleSaveEdit = () => {
     if (!editedComplaint.trim()) {
-      toast.error("Complaint cannot be empty.");
+      toast.error("Complaint draft cannot be empty.");
       return;
     }
-
     setEditing(false);
     setSaved(false);
-
-    toast.success("Complaint changes saved in this draft.");
+    toast.success("Complaint changes saved in current draft.");
   };
-
-  /* ============================================================
-     COPY
-     ============================================================ */
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(complaintText);
-
-      toast.success("Complaint copied.");
+      setCopied(true);
+      toast.success("Complaint text copied!");
+      setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error(error);
-
-      toast.error("Unable to copy complaint.");
+      toast.error("Unable to copy complaint text.");
     }
   };
-
-  /* ============================================================
-     DOWNLOAD PDF
-     ============================================================ */
 
   const handleDownload = async () => {
     if (!complaintText.trim()) {
-      toast.error("There is no complaint to download.");
+      toast.error("No complaint text available to download.");
       return;
     }
-
     try {
-      const pdfBlob = await downloadComplaintPDF(
-        getCurrentReport()
-      );
-
+      toast.loading("Generating PDF...", { id: "download-pdf" });
+      const pdfBlob = await downloadComplaintPDF(getCurrentReport());
       const url = window.URL.createObjectURL(pdfBlob);
-
       const link = document.createElement("a");
-
       link.href = url;
-      link.download = "Legal_Complaint_Draft.pdf";
-
+      link.download = `Legal_Complaint_${formData?.name ? formData.name.replace(/\s+/g, "_") : "Draft"}.pdf`;
       document.body.appendChild(link);
-
       link.click();
-
       document.body.removeChild(link);
-
       window.URL.revokeObjectURL(url);
-
-      toast.success("Complaint PDF downloaded.");
+      toast.success("Complaint PDF downloaded!", { id: "download-pdf" });
     } catch (error) {
       console.error(error);
-
-      toast.error("Unable to download PDF.");
+      toast.error("Unable to download PDF.", { id: "download-pdf" });
     }
   };
 
-  /* ============================================================
-     SAVE CASE
-     ============================================================ */
-
   const handleSave = async () => {
     if (saved) return;
-
     if (!complaintText.trim()) {
-      toast.error("Complaint cannot be empty.");
+      toast.error("Complaint text cannot be empty.");
       return;
     }
-
     try {
       setSaving(true);
-
       const response = await saveCase({
         citizen_name: formData?.name,
         city: formData?.city,
         report: getCurrentReport(),
       });
-
       setSaved(true);
       setCaseId(response.case_id);
-
-      toast.success("Case saved successfully.");
+      toast.success("Case saved successfully in SQLite database!");
     } catch (error) {
       console.error(error);
-
       toast.error("Unable to save case.");
     } finally {
       setSaving(false);
     }
   };
 
-  /* ============================================================
-     GROUNDING STATUS
-     ============================================================ */
+  const groundingVerified = grounding.status === "Verified" || caseAnalysis.grounding_status === "Verified";
+  const groundingNeedsReview = grounding.status === "Needs Review" || caseAnalysis.grounding_status === "Needs Review";
 
-  const groundingVerified =
-    grounding.status === "Verified" ||
-    caseAnalysis.grounding_status === "Verified";
-
-  const groundingNeedsReview =
-    grounding.status === "Needs Review" ||
-    caseAnalysis.grounding_status === "Needs Review";
-
-  /* ============================================================
-     EVIDENCE COMPLETENESS SCORE
-     ============================================================ */
-
-  const detectedEvidence =
-    readiness.evidence?.detected || [];
-
-  const missingEvidence =
-    readiness.evidence?.missing || [];
-
-  const evidenceTotal =
-    detectedEvidence.length + missingEvidence.length;
-
-  const evidenceCompleteness =
-    Math.round(
-      (detectedEvidence.length /
-        Math.max(1, evidenceTotal)) *
-        100
-    );
+  const detectedEvidence = readiness.evidence?.detected || [];
+  const missingEvidence = readiness.evidence?.missing || [];
+  const evidenceTotal = detectedEvidence.length + missingEvidence.length;
+  const evidenceCompleteness = Math.round((detectedEvidence.length / Math.max(1, evidenceTotal)) * 100);
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-
-      {/* ======================================================
-          HEADER
-          ====================================================== */}
-
-      <div className="bg-gradient-to-r from-emerald-700 to-teal-600 text-white px-8 py-6">
-
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden space-y-0">
+      {/* Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 sm:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-
-          <FaClipboardList className="text-2xl" />
-
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <FileText className="w-5 h-5" />
+          </div>
           <div>
-
-            <h2 className="text-3xl font-bold">
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
               AI-Assisted Legal Complaint Draft
             </h2>
-
-            <p className="text-emerald-100 mt-1">
-              Review and edit the generated draft before saving or downloading.
+            <p className="text-xs text-indigo-200">
+              Review, edit, and export your legal complaint
             </p>
-
           </div>
-
         </div>
 
-      </div>
-
-      {/* ======================================================
-          WARNING
-          ====================================================== */}
-
-      <div className="mx-8 mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900">
-
-        <strong>Review before use:</strong>{" "}
-
-        This is an AI-assisted draft generated from retrieved legal
-        provisions. Review and edit it before submitting or relying on it.
-        It is not a substitute for professional legal advice.
-
-      </div>
-
-      {/* ======================================================
-          SUMMARY CARDS
-          ====================================================== */}
-
-      <div className="p-8 border-b">
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* Legal Readiness */}
-
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-
-            <p className="text-sm text-blue-700 font-semibold">
-              Legal Readiness
-            </p>
-
-            <p className="text-4xl font-bold text-blue-900 mt-2">
-              {readiness.score ?? 0}%
-            </p>
-
-            <p className="text-blue-900 font-semibold mt-1">
-              {readiness.status || "Not evaluated"}
-            </p>
-
-          </div>
-
-          {/* Retrieval Confidence */}
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-
-            <p className="text-sm text-slate-500 font-semibold">
-              Retrieval Confidence
-            </p>
-
-            <p className="text-2xl font-bold text-slate-800 mt-3">
-              {report.confidence || "Unknown"}
-            </p>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Based on the highest-ranked legal provision.
-            </p>
-
-          </div>
-
-          {/* Grounding */}
-
-          <div
-            className={
-              groundingVerified
-                ? "bg-green-50 border border-green-200 rounded-2xl p-5"
-                : groundingNeedsReview
-                ? "bg-yellow-50 border border-yellow-200 rounded-2xl p-5"
-                : "bg-slate-50 border border-slate-200 rounded-2xl p-5"
-            }
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCopy}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition"
           >
-
-            <p className="text-sm font-semibold">
-              Grounding Status
-            </p>
-
-            <p className="text-2xl font-bold mt-3">
-
-              {groundingVerified
-                ? "✓ Verified"
-                : groundingNeedsReview
-                ? "⚠ Needs Review"
-                : "Not available"}
-
-            </p>
-
-            <p className="text-sm mt-1">
-              Legal authorities are checked against retrieved evidence.
-            </p>
-
-          </div>
-
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? "Copied!" : "Copy"}</span>
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || saved}
+            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-900/50 text-white text-xs font-semibold flex items-center gap-1.5 transition"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>{saved ? "Saved" : saving ? "Saving..." : "Save Case"}</span>
+          </button>
+          <button
+            onClick={handleDownload}
+            className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>PDF</span>
+          </button>
         </div>
-
       </div>
 
-      {/* ======================================================
-          CASE ASSESSMENT
-          ====================================================== */}
+      {/* Review Disclaimer Notice */}
+      <div className="p-4 bg-amber-50 border-b border-amber-200/80 text-xs text-amber-900 flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <span>Review before use: Educational AI draft generated from statutory provisions. Verify facts before formal filing.</span>
+      </div>
 
-      <div className="p-8 border-b">
-
-        <div className="flex items-center justify-between gap-4 mb-5">
-
-          <div>
-
-            <h3 className="font-bold text-xl text-slate-800">
-              Case Assessment
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-1">
-              A summary of the retrieved legal analysis and available evidence.
-            </p>
-
-          </div>
-
-          {report?.evidence_consistency?.overall_status ===
-            "MISMATCH" && (
-
-            <span className="px-3 py-2 rounded-xl bg-amber-100 text-amber-800 text-sm font-semibold">
-              ⚠ Evidence mismatch
-            </span>
-
-          )}
-
+      {/* Readiness Summary Metrics */}
+      <div className="p-6 border-b border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/50">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <p className="text-xs font-bold text-slate-400 uppercase">Legal Readiness</p>
+          <p className="text-3xl font-black text-indigo-700 mt-1">{readiness.score ?? 0}%</p>
+          <p className="text-xs font-semibold text-slate-700 mt-1">{readiness.status || "Not evaluated"}</p>
         </div>
 
-        {/* Case analysis cards */}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-
-            <p className="text-sm text-slate-500 font-semibold">
-              Category
-            </p>
-
-            <p className="text-lg font-bold text-slate-800 mt-2">
-              {caseAnalysis.category || "Not provided"}
-            </p>
-
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-
-            <p className="text-sm text-slate-500 font-semibold">
-              Applicable Act
-            </p>
-
-            <p className="text-lg font-bold text-slate-800 mt-2">
-              {caseAnalysis.applicable_act || "Not provided"}
-            </p>
-
-          </div>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
-
-            <p className="text-sm text-slate-500 font-semibold">
-              Recommended Remedy
-            </p>
-
-            <p className="text-lg font-bold text-slate-800 mt-2">
-              {caseAnalysis.recommended_remedy || "Not provided"}
-            </p>
-
-          </div>
-
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
+          <p className="text-xs font-bold text-slate-400 uppercase">Retrieval Confidence</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1.5">{report.confidence || "Medium"}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Highest statutory match</p>
         </div>
 
-        {/* ==================================================
-            EVIDENCE COMPLETENESS
-            ================================================== */}
-
-        {readiness.evidence && (
-
-          <div className="mt-5 bg-white border border-slate-200 rounded-2xl p-5">
-
-            <div className="flex items-center justify-between mb-3">
-
-              <div>
-
-                <p className="font-semibold text-slate-800">
-                  Evidence Completeness
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  Based on evidence groups detected by the readiness service.
-                </p>
-
-              </div>
-
-              <span className="font-bold text-slate-800">
-                {evidenceCompleteness}%
+        <div className={`border rounded-2xl p-4 shadow-xs ${groundingVerified ? "bg-emerald-50/50 border-emerald-200" : "bg-amber-50/50 border-amber-200"}`}>
+          <p className="text-xs font-bold text-slate-400 uppercase">Grounding Status</p>
+          <p className="text-xl font-bold mt-1.5 flex items-center gap-1.5">
+            {groundingVerified ? (
+              <span className="text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> Verified
               </span>
-
-            </div>
-
-            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
-
-              <div
-                className="h-full bg-emerald-600 rounded-full"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    evidenceCompleteness
-                  )}%`,
-                }}
-              />
-
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-
-              {/* Detected */}
-
-              <div>
-
-                <p className="text-sm font-semibold text-green-700 mb-2">
-                  Detected Evidence
-                </p>
-
-                {detectedEvidence.length > 0 ? (
-
-                  <ul className="space-y-2">
-
-                    {detectedEvidence.map(
-                      (item, index) => (
-
-                        <li
-                          key={index}
-                          className="flex gap-2 text-sm text-slate-700"
-                        >
-
-                          <FaCheckCircle className="text-green-600 mt-0.5 flex-shrink-0" />
-
-                          {item}
-
-                        </li>
-
-                      )
-                    )}
-
-                  </ul>
-
-                ) : (
-
-                  <p className="text-sm text-slate-500">
-                    No evidence groups detected.
-                  </p>
-
-                )}
-
-              </div>
-
-              {/* Missing */}
-
-              <div>
-
-                <p className="text-sm font-semibold text-amber-700 mb-2">
-                  Missing Evidence
-                </p>
-
-                {missingEvidence.length > 0 ? (
-
-                  <ul className="space-y-2">
-
-                    {missingEvidence.map(
-                      (item, index) => (
-
-                        <li
-                          key={index}
-                          className="flex gap-2 text-sm text-slate-700"
-                        >
-
-                          <span className="text-amber-600">
-                            ⚠
-                          </span>
-
-                          {item}
-
-                        </li>
-
-                      )
-                    )}
-
-                  </ul>
-
-                ) : (
-
-                  <p className="text-sm text-slate-500">
-                    No missing evidence groups detected.
-                  </p>
-
-                )}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        )}
-
-        {/* ==================================================
-            EVIDENCE DISCREPANCIES
-            ================================================== */}
-
-        {report?.evidence_consistency?.discrepancies?.length >
-          0 && (
-
-          <div className="mt-5 bg-amber-50 border border-amber-200 rounded-2xl p-5">
-
-            <div className="mb-3">
-
-              <p className="font-semibold text-amber-900">
-                Evidence Conflicts
-              </p>
-
-              <p className="text-sm text-amber-800 mt-1">
-                These differences should be verified before filing.
-                The system does not decide which version is correct.
-              </p>
-
-            </div>
-
-            <div className="space-y-3">
-
-              {report.evidence_consistency.discrepancies.map(
-                (item, index) => (
-
-                  <div
-                    key={index}
-                    className="bg-white border border-amber-200 rounded-xl p-4"
-                  >
-
-                    <p className="font-semibold text-slate-800">
-                      {item.label || item.field}
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 text-sm">
-
-                      <div>
-
-                        <p className="text-slate-500">
-                          Case details
-                        </p>
-
-                        <p className="font-medium text-slate-800">
-                          {item.user_value ??
-                            "Not provided"}
-                        </p>
-
-                      </div>
-
-                      <div>
-
-                        <p className="text-slate-500">
-                          Uploaded evidence
-                        </p>
-
-                        <p className="font-medium text-slate-800">
-                          {item.evidence_value ??
-                            "Not found"}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          </div>
-
-        )}
-
+            ) : (
+              <span className="text-amber-700 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" /> Needs Review
+              </span>
+            )}
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Statutory authorities checked</p>
+        </div>
       </div>
 
-      {/* ======================================================
-          EVIDENCE TIMELINE
-          ====================================================== */}
+      {/* Case Assessment & Evidence Completeness */}
+      <div className="p-6 border-b border-slate-200/80 space-y-5">
+        <div>
+          <h3 className="font-bold text-base text-slate-900">Case Assessment Summary</h3>
+          <p className="text-xs text-slate-500">Classification and recommended legal remedies</p>
+        </div>
 
-      {timelineEvents.length > 0 && (
-
-        <div className="p-8 border-b">
-
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
-
-            <div>
-
-              <h3 className="font-bold text-xl text-slate-800">
-                Evidence Timeline
-              </h3>
-
-              <p className="text-sm text-slate-500 mt-1">
-                Chronological view of citizen-reported,
-                evidence-derived, and derived events.
-              </p>
-
-            </div>
-
-            {timeline.summary && (
-
-              <div className="flex gap-2 flex-wrap">
-
-                <span className="bg-slate-100 text-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
-                  {timeline.summary.event_count ??
-                    timelineEvents.length}{" "}
-                  events
-                </span>
-
-                <span
-                  className={
-                    (timeline.summary.conflict_count || 0) > 0
-                      ? "bg-amber-100 text-amber-800 rounded-xl px-3 py-2 text-sm font-semibold"
-                      : "bg-emerald-100 text-emerald-800 rounded-xl px-3 py-2 text-sm font-semibold"
-                  }
-                >
-                  {timeline.summary.conflict_count ??
-                    timelineConflicts.length}{" "}
-                  conflicts
-                </span>
-
-              </div>
-
-            )}
-
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <span className="font-semibold text-slate-500">Category:</span>
+            <p className="font-bold text-slate-900 text-sm mt-0.5">{caseAnalysis.category || "General Dispute"}</p>
           </div>
 
-          {/* Timeline */}
-
-          <div className="relative">
-
-            {/* Vertical line */}
-
-            <div className="absolute left-[11px] top-3 bottom-3 w-px bg-slate-200" />
-
-            <div className="space-y-6">
-
-              {timelineEvents.map(
-                (event, index) => (
-
-                  <div
-                    key={`${event.date_iso || "undated"}-${event.title}-${index}`}
-                    className="relative pl-9"
-                  >
-
-                    {/* Timeline dot */}
-
-                    <div className="absolute left-0 top-1.5 h-6 w-6 rounded-full bg-white border-4 border-emerald-500 z-10" />
-
-                    {/* Event card */}
-
-                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-
-                        <div>
-
-                          <p className="text-sm font-semibold text-emerald-700">
-                            {event.date ||
-                              "Date not available"}
-                          </p>
-
-                          <h4 className="font-bold text-slate-800 mt-1">
-                            {event.title ||
-                              "Case event"}
-                          </h4>
-
-                        </div>
-
-                        <TimelineTypeBadge
-                          type={event.type}
-                        />
-
-                      </div>
-
-                      {event.details && (
-
-                        <p className="text-sm text-slate-600 mt-3 leading-6">
-                          {event.details}
-                        </p>
-
-                      )}
-
-                      <div className="flex flex-wrap gap-2 mt-3 text-xs">
-
-                        {event.source && (
-
-                          <span className="bg-slate-100 text-slate-600 rounded-lg px-2.5 py-1">
-                            Source: {event.source}
-                          </span>
-
-                        )}
-
-                        {event.confidence && (
-
-                          <span className="bg-slate-100 text-slate-600 rounded-lg px-2.5 py-1">
-                            Confidence: {event.confidence}
-                          </span>
-
-                        )}
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <span className="font-semibold text-slate-500">Applicable Statutory Act:</span>
+            <p className="font-bold text-slate-900 text-sm mt-0.5">{caseAnalysis.applicable_act || "Consumer Protection Act 2019"}</p>
           </div>
 
-          {/* ==================================================
-              TIMELINE CONFLICTS
-              ================================================== */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <span className="font-semibold text-slate-500">Recommended Remedy:</span>
+            <p className="font-bold text-indigo-700 text-sm mt-0.5">{caseAnalysis.recommended_remedy || "Refund / Replacement"}</p>
+          </div>
+        </div>
 
-          {timelineConflicts.length > 0 && (
+        {/* Evidence Completeness */}
+        {readiness.evidence && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-800">Evidence Completeness Score</span>
+              <span className="font-black text-indigo-700 text-sm">{evidenceCompleteness}%</span>
+            </div>
 
-            <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-5">
+            <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-600 rounded-full transition-all duration-300" style={{ width: `${evidenceCompleteness}%` }} />
+            </div>
 
-              <div className="flex items-start gap-3">
-
-                <span className="text-xl">
-                  ⚠
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
+              <div>
+                <span className="font-bold text-emerald-700 flex items-center gap-1 mb-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Detected Evidence Groups
                 </span>
-
-                <div>
-
-                  <p className="font-semibold text-amber-900">
-                    Timeline Conflicts Require Verification
-                  </p>
-
-                  <p className="text-sm text-amber-800 mt-1">
-                    The system does not decide which conflicting
-                    version is correct.
-                  </p>
-
-                </div>
-
-              </div>
-
-              <div className="space-y-3 mt-4">
-
-                {timelineConflicts.map(
-                  (item, index) => (
-
-                    <div
-                      key={`${item.field || "conflict"}-${index}`}
-                      className="bg-white border border-amber-200 rounded-xl p-4"
-                    >
-
-                      <p className="font-semibold text-slate-800">
-                        {item.label ||
-                          item.field ||
-                          "Timeline conflict"}
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
-
-                        <div>
-
-                          <p className="text-slate-500">
-                            Citizen-provided
-                          </p>
-
-                          <p className="font-medium text-slate-800">
-                            {item.user_value ??
-                              "Not provided"}
-                          </p>
-
-                        </div>
-
-                        <div>
-
-                          <p className="text-slate-500">
-                            Uploaded evidence
-                          </p>
-
-                          <p className="font-medium text-slate-800">
-                            {item.evidence_value ??
-                              "Not found"}
-                          </p>
-
-                        </div>
-
-                      </div>
-
-                      {item.message && (
-
-                        <p className="text-sm text-amber-800 mt-3">
-                          {item.message}
-                        </p>
-
-                      )}
-
-                    </div>
-
-                  )
+                {detectedEvidence.length > 0 ? (
+                  <ul className="space-y-1 text-slate-700">
+                    {detectedEvidence.map((item, idx) => (
+                      <li key={idx} className="bg-white p-2 rounded-lg border border-slate-200 font-medium">✓ {item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400 italic">No evidence detected.</p>
                 )}
-
               </div>
 
+              <div>
+                <span className="font-bold text-amber-700 flex items-center gap-1 mb-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Recommended Additional Evidence
+                </span>
+                {missingEvidence.length > 0 ? (
+                  <ul className="space-y-1 text-slate-700">
+                    {missingEvidence.map((item, idx) => (
+                      <li key={idx} className="bg-white p-2 rounded-lg border border-slate-200 font-medium">⚠ {item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-400 italic">No missing evidence groups.</p>
+                )}
+              </div>
             </div>
+          </div>
+        )}
+      </div>
 
-          )}
-
-          {/* Timeline status */}
-
-          {timeline.summary && (
-
-            <div className="mt-5">
-
-              {timeline.summary.status ===
-              "CONFLICTS_FOUND" ? (
-
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
-
-                  <strong>Verification required:</strong>{" "}
-
-                  One or more timeline facts conflict with the
-                  uploaded evidence.
-
-                </div>
-
-              ) : (
-
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
-
-                  ✓ No timeline conflicts were detected.
-
-                </div>
-
-              )}
-
-            </div>
-
-          )}
-
-        </div>
-
-      )}
-
-            {/* ======================================================
-          LEGAL ACTION PLAN
-          ====================================================== */}
-
-      {report?.action_plan?.steps?.length > 0 && (
-        <div className="p-8 border-b">
-
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
-
+      {/* Timeline Section */}
+      {timelineEvents.length > 0 && (
+        <div className="p-6 border-b border-slate-200/80 space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-xl text-slate-800">
-                Legal Action Plan
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-600" />
+                Case Evidence Timeline
               </h3>
-
-              <p className="text-sm text-slate-500 mt-1">
-                Recommended next steps based on the case details,
-                evidence assessment, conflicts, and generated complaint.
-              </p>
+              <p className="text-xs text-slate-500">Chronological view of reported & derived events</p>
             </div>
-
-            <span
-              className={
-                report.action_plan.overall_status === "REVIEW_REQUIRED"
-                  ? "bg-amber-100 text-amber-800 border border-amber-200 rounded-xl px-3 py-2 text-sm font-semibold"
-                  : "bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl px-3 py-2 text-sm font-semibold"
-              }
-            >
-              {report.action_plan.overall_status === "REVIEW_REQUIRED"
-                ? "⚠ Review Required"
-                : "✓ Ready for Review"}
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {timelineEvents.length} Events Logged
             </span>
-
           </div>
 
-          {/* Action Plan Steps */}
-
-          <div className="space-y-4">
-
-            {report.action_plan.steps.map((step) => {
-
-              const statusConfig = {
-                READY: {
-                  label: "READY",
-                  icon: "✓",
-                  classes:
-                    "bg-emerald-100 text-emerald-800 border-emerald-200",
-                  iconClasses:
-                    "bg-emerald-600 text-white",
-                },
-
-                ATTENTION_REQUIRED: {
-                  label: "ATTENTION REQUIRED",
-                  icon: "⚠",
-                  classes:
-                    "bg-amber-100 text-amber-800 border-amber-200",
-                  iconClasses:
-                    "bg-amber-500 text-white",
-                },
-
-                READY_FOR_REVIEW: {
-                  label: "READY FOR REVIEW",
-                  icon: "📝",
-                  classes:
-                    "bg-blue-100 text-blue-800 border-blue-200",
-                  iconClasses:
-                    "bg-blue-600 text-white",
-                },
-
-                NEXT_STEP: {
-                  label: "NEXT STEP",
-                  icon: "→",
-                  classes:
-                    "bg-indigo-100 text-indigo-800 border-indigo-200",
-                  iconClasses:
-                    "bg-indigo-600 text-white",
-                },
-
-                PENDING: {
-                  label: "PENDING",
-                  icon: "○",
-                  classes:
-                    "bg-slate-100 text-slate-700 border-slate-200",
-                  iconClasses:
-                    "bg-slate-500 text-white",
-                },
-              };
-
-              const config =
-                statusConfig[step.status] ||
-                statusConfig.PENDING;
-
-              return (
-                <div
-                  key={step.step}
-                  className={`border rounded-2xl p-5 ${
-                    step.status === "ATTENTION_REQUIRED"
-                      ? "border-amber-200 bg-amber-50/50"
-                      : "border-slate-200 bg-white"
-                  }`}
-                >
-
-                  <div className="flex items-start gap-4">
-
-                    {/* Step Number */}
-
-                    <div
-                      className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold ${config.iconClasses}`}
-                    >
-                      {step.step}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      {/* Title + Status */}
-
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-
-                        <div>
-
-                          <h4 className="font-bold text-lg text-slate-800">
-                            {step.title}
-                          </h4>
-
-                          <p className="text-sm text-slate-600 mt-1">
-                            {step.description}
-                          </p>
-
-                        </div>
-
-                        <span
-                          className={`self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold whitespace-nowrap ${config.classes}`}
-                        >
-                          <span>
-                            {config.icon}
-                          </span>
-
-                          {config.label}
-                        </span>
-
-                      </div>
-
-                      {/* Actions */}
-
-                      {Array.isArray(step.actions) &&
-                        step.actions.length > 0 && (
-
-                          <div className="mt-4">
-
-                            <p className="text-sm font-semibold text-slate-700 mb-2">
-                              Recommended actions
-                            </p>
-
-                            <ul className="space-y-2">
-
-                              {step.actions.map(
-                                (action, actionIndex) => (
-
-                                  <li
-                                    key={actionIndex}
-                                    className="flex items-start gap-2 text-sm text-slate-700"
-                                  >
-
-                                    <span
-                                      className={
-                                        step.status ===
-                                        "ATTENTION_REQUIRED"
-                                          ? "text-amber-600 mt-0.5"
-                                          : "text-emerald-600 mt-0.5"
-                                      }
-                                    >
-                                      {step.status ===
-                                      "ATTENTION_REQUIRED"
-                                        ? "⚠"
-                                        : "✓"}
-                                    </span>
-
-                                    <span>
-                                      {action}
-                                    </span>
-
-                                  </li>
-
-                                )
-                              )}
-
-                            </ul>
-
-                          </div>
-
-                        )}
-
-                      {/* Reason */}
-
-                      {step.reason && (
-
-                        <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3">
-
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                            Why this step?
-                          </p>
-
-                          <p className="text-sm text-slate-600 mt-1">
-                            {step.reason}
-                          </p>
-
-                        </div>
-
-                      )}
-
-                    </div>
-
+          <div className="relative pl-4 border-l-2 border-indigo-200 space-y-4 my-4">
+            {timelineEvents.map((event, idx) => (
+              <div key={idx} className="relative pl-4">
+                <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full bg-indigo-600 ring-4 ring-indigo-100" />
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-indigo-700">{event.date || "Undated"}</span>
+                    <TimelineTypeBadge type={event.type} />
                   </div>
-
+                  <h4 className="font-bold text-slate-900 text-sm">{event.title}</h4>
+                  {event.details && <p className="text-slate-600 leading-relaxed">{event.details}</p>}
                 </div>
-              );
-            })}
-
+              </div>
+            ))}
           </div>
-
-          {/* Overall Summary */}
-
-          {report.action_plan.summary && (
-
-            <div
-              className={
-                report.action_plan.overall_status ===
-                "REVIEW_REQUIRED"
-                  ? "mt-5 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900"
-                  : "mt-5 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800"
-              }
-            >
-
-              <strong>
-                Action Plan Summary:
-              </strong>{" "}
-
-              {report.action_plan.summary}
-
-            </div>
-
-          )}
-
         </div>
       )}
 
-      {/* ======================================================
-          APPLICABLE RIGHTS
-          ====================================================== */}
-
-      {Array.isArray(caseAnalysis.rights) &&
-        caseAnalysis.rights.length > 0 && (
-
-          <div className="p-8 border-b">
-
-            <h3 className="font-bold text-xl mb-4">
-              Applicable Rights
-            </h3>
-
-            <ul className="space-y-3">
-
-              {caseAnalysis.rights.map(
-                (item, index) => (
-
-                  <li
-                    key={index}
-                    className="flex items-center gap-3 text-slate-700"
-                  >
-
-                    <FaCheckCircle className="text-green-600 flex-shrink-0" />
-
-                    {item}
-
-                  </li>
-
-                )
-              )}
-
-            </ul>
-
-          </div>
-
-        )}
-
-      {/* ======================================================
-          READINESS RECOMMENDATIONS
-          ====================================================== */}
-
-      {Array.isArray(readiness.recommendations) &&
-        readiness.recommendations.length > 0 && (
-
-          <div className="p-8 border-b">
-
-            <h3 className="font-bold text-xl mb-4">
-              Evidence / Readiness Recommendations
-            </h3>
-
-            <ul className="space-y-2 text-slate-700">
-
-              {readiness.recommendations.map(
-                (item, index) => (
-
-                  <li
-                    key={index}
-                    className="flex gap-3"
-                  >
-
-                    <span>•</span>
-
-                    <span>
-                      {item}
-                    </span>
-
-                  </li>
-
-                )
-              )}
-
-            </ul>
-
-          </div>
-
-        )}
-
-      {/* ======================================================
-          COMPLAINT DRAFT
-          ====================================================== */}
-
-      <div className="p-8">
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
-
+      {/* Legal Action Plan */}
+      {report?.action_plan?.steps?.length > 0 && (
+        <div className="p-6 border-b border-slate-200/80 space-y-4">
           <div>
+            <h3 className="font-bold text-base text-slate-900">Recommended Next Action Steps</h3>
+            <p className="text-xs text-slate-500">Sequential steps for formal resolution</p>
+          </div>
 
-            <h3 className="font-bold text-xl text-slate-800">
-              Complaint Draft
-            </h3>
+          <div className="space-y-3">
+            {report.action_plan.steps.map((step) => (
+              <div key={step.step} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                      {step.step}
+                    </span>
+                    {step.title}
+                  </span>
+                  <span className="font-bold px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px]">
+                    {step.status}
+                  </span>
+                </div>
+                <p className="text-slate-600">{step.description}</p>
+                {step.reason && (
+                  <p className="text-[11px] text-slate-400 italic bg-white p-2 rounded-lg border border-slate-100">
+                    Why: {step.reason}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            <p className="text-sm text-slate-500 mt-1">
-
-              {editing
-                ? "Edit the draft below, then select Save Edits."
-                : "Select Edit Draft if you want to modify the complaint."}
-
+      {/* Editable Complaint Draft Text Area */}
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-base text-slate-900">Generated Complaint Draft</h3>
+            <p className="text-xs text-slate-500">
+              {editing ? "Editing enabled below. Click 'Save Edits' when done." : "Click 'Edit Draft' to customize text."}
             </p>
-
           </div>
 
           {!editing ? (
-
             <button
               onClick={handleEdit}
-              className="bg-indigo-700 hover:bg-indigo-600 text-white rounded-xl px-5 py-3 flex items-center justify-center gap-2"
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition"
             >
-
-              <FaEdit />
-
-              Edit Draft
-
+              <Edit className="w-3.5 h-3.5" />
+              <span>Edit Draft</span>
             </button>
-
           ) : (
-
-            <div className="flex gap-3">
-
+            <div className="flex gap-2">
               <button
                 onClick={handleCancelEdit}
-                className="border border-slate-300 rounded-xl px-5 py-3 flex items-center gap-2 hover:bg-slate-100"
+                className="px-3.5 py-1.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition"
               >
-
-                <FaUndo />
-
-                Cancel
-
+                <Undo className="w-3.5 h-3.5" />
+                <span>Cancel</span>
               </button>
-
               <button
                 onClick={handleSaveEdit}
-                className="bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl px-5 py-3 flex items-center gap-2"
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition"
               >
-
-                <FaCheckCircle />
-
-                Save Edits
-
+                <Check className="w-3.5 h-3.5" />
+                <span>Save Edits</span>
               </button>
-
             </div>
-
           )}
-
         </div>
 
         {editing ? (
-
           <textarea
             value={editedComplaint}
-            onChange={(event) =>
-              setEditedComplaint(event.target.value)
-            }
-            rows={28}
-            spellCheck={false}
-            className="w-full border-2 border-indigo-200 rounded-2xl p-6 leading-8 text-slate-700 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            aria-label="Editable complaint draft"
+            onChange={(e) => setEditedComplaint(e.target.value)}
+            rows={22}
+            className="w-full bg-slate-50 border-2 border-indigo-300 rounded-2xl p-5 text-sm text-slate-800 leading-relaxed font-mono resize-y outline-none focus:bg-white"
           />
-
         ) : (
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 whitespace-pre-wrap leading-8 text-slate-700">
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-sm text-slate-800 leading-relaxed font-mono whitespace-pre-wrap">
             {complaintText}
           </div>
-
         )}
 
+        {/* Saved Case confirmation alert */}
+        {saved && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 flex items-center justify-between">
+            <span>✓ Saved to My Legal Cases (Case ID: {caseId})</span>
+          </div>
+        )}
       </div>
 
-      {/* ======================================================
-          SAVED CASE
-          ====================================================== */}
-
-      {saved && (
-
-        <div className="px-8 pb-4">
-
-          <div className="bg-green-50 border border-green-300 rounded-xl p-4">
-
-            <p className="text-green-800 font-semibold">
-              ✓ Case Saved Successfully
-            </p>
-
-            <p className="mt-2 text-slate-700">
-
-              Case ID:
-
-              <strong className="ml-2">
-                {caseId}
-              </strong>
-
-            </p>
-
-          </div>
-
-        </div>
-
-      )}
-
-      {/* ======================================================
-          ACTION BUTTONS
-          ====================================================== */}
-
-      <div className="border-t bg-slate-50 p-6 flex flex-wrap justify-end gap-4">
-
+      {/* Footer Bottom Action Buttons Bar */}
+      <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-3">
         <button
           onClick={handleCopy}
-          className="border border-slate-300 rounded-xl px-5 py-3 flex items-center gap-2 hover:bg-slate-100"
+          className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-white text-xs font-semibold flex items-center gap-2 transition"
         >
-
-          <FaCopy />
-
-          Copy
-
+          {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+          <span>{copied ? "Copied" : "Copy Draft"}</span>
         </button>
 
         <button
           onClick={handleSave}
           disabled={saving || saved}
-          className="bg-emerald-700 text-white rounded-xl px-5 py-3 flex items-center gap-2 hover:bg-emerald-600 disabled:opacity-50"
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-900/50 text-white text-xs font-bold flex items-center gap-2 transition shadow-xs"
         >
-
-          <FaSave />
-
-          {saved
-            ? "Saved"
-            : saving
-            ? "Saving..."
-            : "Save Case"}
-
+          <Save className="w-4 h-4" />
+          <span>{saved ? "Saved in Cases" : saving ? "Saving..." : "Save Case"}</span>
         </button>
 
         <button
           onClick={handleDownload}
-          className="bg-blue-900 text-white rounded-xl px-5 py-3 flex items-center gap-2 hover:bg-blue-800"
+          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-2 transition shadow-xs"
         >
-
-          <FaDownload />
-
-          Download PDF
-
+          <Download className="w-4 h-4" />
+          <span>Download PDF Report</span>
         </button>
-
       </div>
-
     </div>
   );
 }

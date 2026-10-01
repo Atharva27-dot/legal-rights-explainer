@@ -1,19 +1,24 @@
 import { useState } from "react";
 import {
-  FaFileAlt,
-  FaShoppingCart,
-  FaStore,
-  FaCalendarAlt,
-  FaPen,
-  FaUser,
-  FaMapMarkerAlt,
-  FaBalanceScale,
-  FaUniversity,
-  FaMoneyBillWave,
-} from "react-icons/fa";
-
+  User,
+  MapPin,
+  Scale,
+  ShoppingBag,
+  Store,
+  Calendar,
+  Landmark,
+  DollarSign,
+  Edit3,
+  CheckCircle2,
+  FileText,
+  Sparkles,
+  Send,
+  HelpCircle,
+  AlertCircle
+} from "lucide-react";
 import { generateComplaint } from "../services/api";
 import EvidenceUploader from "./EvidenceUploader";
+import toast from "react-hot-toast";
 
 export default function ComplaintForm({ setCaseData }) {
   const [loading, setLoading] = useState(false);
@@ -23,144 +28,111 @@ export default function ComplaintForm({ setCaseData }) {
   const [formData, setFormData] = useState({
     name: "",
     city: "",
-
-    // Legal classification
     domain: "",
     issue_type: "",
-
-    // Consumer fields
     product: "",
     seller: "",
     purchase_date: "",
-
-    // Cyber fields
     bank: "",
     transaction_date: "",
     amount: "",
-
     problem: "",
     remedy: "Refund",
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const isCyber =
-    formData.domain === "Cyber / IT";
+  const isCyber = formData.domain === "Cyber / IT";
+  const isConsumer = formData.domain === "Consumer Protection";
+  const isEmployment = formData.domain === "Employment / Labour";
+  const isContract = formData.domain === "Contract / Service";
 
-  const isConsumer =
-    formData.domain === "Consumer Protection";
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
 
-  const isEmployment =
-    formData.domain === "Employment / Labour";
-
-  const isContract =
-    formData.domain === "Contract / Service";
-
-  const handleSubmit = async () => {
-    if (!formData.name) {
-      alert("Please enter your name.");
+    if (!formData.name.trim()) {
+      toast.error("Please enter your name.");
       return;
     }
 
-    if (!formData.city) {
-      alert("Please enter your city.");
+    if (!formData.city.trim()) {
+      toast.error("Please enter your city.");
       return;
     }
 
     if (!formData.domain) {
-      alert("Please select a legal domain.");
+      toast.error("Please select a legal domain.");
       return;
     }
 
     if (!formData.issue_type) {
-      alert("Please select the specific issue.");
+      toast.error("Please select the specific issue.");
       return;
     }
 
-    // Consumer validation
     if (isConsumer) {
-      if (!formData.product) {
-        alert("Please enter the product or service.");
+      if (!formData.product.trim()) {
+        toast.error("Please enter the product or service.");
         return;
       }
-
-      if (!formData.seller) {
-        alert("Please enter the seller or company.");
+      if (!formData.seller.trim()) {
+        toast.error("Please enter the seller or company.");
         return;
       }
-
       if (!formData.purchase_date) {
-        alert("Please enter the purchase date.");
+        toast.error("Please enter the purchase date.");
         return;
       }
     }
 
-    // Cyber validation
     if (isCyber) {
-      if (!formData.bank) {
-        alert("Please enter the bank or payment platform.");
+      if (!formData.bank.trim()) {
+        toast.error("Please enter the bank or payment platform.");
         return;
       }
-
       if (!formData.transaction_date) {
-        alert("Please enter the transaction date.");
+        toast.error("Please enter the transaction date.");
         return;
       }
-
       if (!formData.amount) {
-        alert("Please enter the amount involved.");
+        toast.error("Please enter the amount involved.");
         return;
       }
     }
 
-    // General problem validation
-    if (!formData.problem) {
-      alert("Please describe your problem.");
+    if (!formData.problem.trim()) {
+      toast.error("Please describe your problem.");
       return;
     }
 
     if (formData.problem.trim().length < 20) {
-      alert("Problem description must contain at least 20 characters.");
+      toast.error("Problem description must contain at least 20 characters.");
       return;
     }
 
     try {
       setLoading(true);
 
-      /*
-       * Keep compatibility with the existing backend fields.
-       *
-       * For Cyber / IT:
-       * product       = issue type
-       * seller        = bank/payment platform
-       * purchase_date = transaction date
-       *
-       * The original values are also preserved in the request.
-       */
-
-     const requestData = {
-  ...formData,
-
-  ...(isCyber && {
-    product: formData.issue_type,
-    seller: formData.bank,
-    purchase_date: formData.transaction_date,
-  }),
-
-  evidence: evidence.map((item) => ({
-    file_id: item.fileId,
-    filename: item.name,
-    extraction_status: item.extractionStatus,
-    extracted_text: item.extractedText,
-  })),
-};
+      const requestData = {
+        ...formData,
+        ...(isCyber && {
+          product: formData.issue_type,
+          seller: formData.bank,
+          purchase_date: formData.transaction_date,
+        }),
+        evidence: evidence.map((item) => ({
+          file_id: item.fileId,
+          filename: item.name,
+          extraction_status: item.extractionStatus,
+          extracted_text: item.extractedText,
+        })),
+      };
 
       const response = await generateComplaint(requestData);
 
@@ -171,13 +143,11 @@ export default function ComplaintForm({ setCaseData }) {
       });
 
       setComplaintGenerated(true);
-
+      toast.success("Complaint draft generated successfully!");
     } catch (error) {
       console.error(error);
-
-      alert(
-        error.response?.data?.detail ||
-        "Failed to generate complaint."
+      toast.error(
+        error.response?.data?.detail || "Failed to generate complaint draft."
       );
     } finally {
       setLoading(false);
@@ -185,602 +155,336 @@ export default function ComplaintForm({ setCaseData }) {
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
-
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-700 text-white px-8 py-5">
-
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Form Header */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 sm:px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-
-          <FaFileAlt className="text-2xl" />
-
-          <div>
-
-            <h2 className="text-2xl font-bold">
-              Complaint Details
-            </h2>
-
-            <p className="text-blue-100 text-sm">
-              Select your legal issue and provide the relevant details.
-            </p>
-
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <FileText className="w-5 h-5" />
           </div>
-
+          <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              Enter Case & Dispute Details
+            </h2>
+            <p className="text-xs text-indigo-200">
+              Structured input for automatic legal drafting
+            </p>
+          </div>
         </div>
 
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-300 font-semibold bg-emerald-950/80 border border-emerald-500/30 px-3 py-1.5 rounded-full">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Step 1 of 2</span>
+        </div>
       </div>
 
-      <div className="p-8 space-y-6">
-
-        {/* =====================================================
-            NAME
-        ====================================================== */}
-
-        <div>
-
-          <label className="font-semibold flex items-center gap-2 mb-2">
-
-            <FaUser />
-
-            Your Name
-
-          </label>
-
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="Enter your name"
-            className="w-full border rounded-xl p-4"
-          />
-
-        </div>
-
-        {/* =====================================================
-            CITY
-        ====================================================== */}
-
-        <div>
-
-          <label className="font-semibold flex items-center gap-2 mb-2">
-
-            <FaMapMarkerAlt />
-
-            City
-
-          </label>
-
-          <input
-            type="text"
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            placeholder="Example: Pune"
-            className="w-full border rounded-xl p-4"
-          />
-
-        </div>
-
-        {/* =====================================================
-            LEGAL DOMAIN
-        ====================================================== */}
-
-        <div>
-
-          <label className="font-semibold flex items-center gap-2 mb-2">
-
-            <FaBalanceScale />
-
-            Legal Domain
-
-          </label>
-
-          <select
-            name="domain"
-            value={formData.domain}
-            onChange={(e) => {
-
-              const selectedDomain = e.target.value;
-
-              setFormData((prev) => ({
-                ...prev,
-
-                domain: selectedDomain,
-
-                issue_type: "",
-
-                product: "",
-                seller: "",
-                purchase_date: "",
-
-                bank: "",
-                transaction_date: "",
-                amount: "",
-              }));
-
-            }}
-            className="w-full border rounded-xl p-4"
-          >
-
-            <option value="">
-              Select your legal issue
-            </option>
-
-            <option value="Consumer Protection">
-              Consumer Protection
-            </option>
-
-            <option value="Cyber / IT">
-              Cyber / IT
-            </option>
-
-            <option value="Employment / Labour">
-              Employment / Labour
-            </option>
-
-            <option value="Contract / Service">
-              Contract / Service
-            </option>
-
-            <option value="Motor Vehicle / Road Accident">
-              Motor Vehicle / Road Accident
-            </option>
-
-            <option value="Other">
-              Other
-            </option>
-
-          </select>
-
-        </div>
-
-        {/* =====================================================
-            ISSUE TYPE
-        ====================================================== */}
-
-        {formData.domain && (
+      <div className="p-6 sm:p-8 space-y-6">
+        {/* Citizen Info Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <User className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Full Name</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="e.g. Rahul Sharma"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition"
+            />
+          </div>
 
           <div>
-
-            <label className="font-semibold flex items-center gap-2 mb-2">
-
-              <FaBalanceScale />
-
-              Specific Issue
-
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+              <span>City / Jurisdiction</span>
             </label>
+            <input
+              type="text"
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              placeholder="e.g. Pune, Maharashtra"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition"
+            />
+          </div>
+        </div>
 
+        {/* Legal Domain & Specific Issue */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <Scale className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Legal Domain</span>
+            </label>
+            <select
+              name="domain"
+              value={formData.domain}
+              onChange={(e) => {
+                const selectedDomain = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  domain: selectedDomain,
+                  issue_type: "",
+                  product: "",
+                  seller: "",
+                  purchase_date: "",
+                  bank: "",
+                  transaction_date: "",
+                  amount: "",
+                }));
+              }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition"
+            >
+              <option value="">Select legal domain</option>
+              <option value="Consumer Protection">Consumer Protection</option>
+              <option value="Cyber / IT">Cyber / IT</option>
+              <option value="Employment / Labour">Employment / Labour</option>
+              <option value="Contract / Service">Contract / Service</option>
+              <option value="Motor Vehicle / Road Accident">Motor Vehicle / Road Accident</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <Scale className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Specific Issue</span>
+            </label>
             <select
               name="issue_type"
               value={formData.issue_type}
               onChange={handleChange}
-              className="w-full border rounded-xl p-4"
+              disabled={!formData.domain}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition disabled:bg-slate-100 disabled:text-slate-400"
             >
-
               <option value="">
-                Select the specific issue
+                {formData.domain ? "Select specific issue" : "Select domain first"}
               </option>
-
-              {/* CONSUMER */}
-
               {isConsumer && (
                 <>
-                  <option value="Defective Product">
-                    Defective Product
-                  </option>
-
-                  <option value="Wrong Product Delivered">
-                    Wrong Product Delivered
-                  </option>
-
-                  <option value="Refund Not Received">
-                    Refund Not Received
-                  </option>
-
-                  <option value="Product Warranty Issue">
-                    Product Warranty Issue
-                  </option>
-
-                  <option value="Online Shopping Dispute">
-                    Online Shopping Dispute
-                  </option>
-
-                  <option value="Service Deficiency">
-                    Service Deficiency
-                  </option>
+                  <option value="Defective Product">Defective Product</option>
+                  <option value="Wrong Product Delivered">Wrong Product Delivered</option>
+                  <option value="Refund Not Received">Refund Not Received</option>
+                  <option value="Product Warranty Issue">Product Warranty Issue</option>
+                  <option value="Online Shopping Dispute">Online Shopping Dispute</option>
+                  <option value="Service Deficiency">Service Deficiency</option>
                 </>
               )}
-
-              {/* CYBER */}
-
               {isCyber && (
                 <>
-                  <option value="UPI Fraud">
-                    UPI / Online Payment Fraud
-                  </option>
-
-                  <option value="Online Banking Fraud">
-                    Online Banking Fraud
-                  </option>
-
-                  <option value="Phishing">
-                    Phishing / Fake Link
-                  </option>
-
-                  <option value="Account Hacking">
-                    Account Hacking
-                  </option>
-
-                  <option value="Identity Theft">
-                    Identity Theft
-                  </option>
-
-                  <option value="Unauthorized Transaction">
-                    Unauthorized Transaction
-                  </option>
-
-                  <option value="Other Cyber Crime">
-                    Other Cyber Crime
-                  </option>
+                  <option value="UPI Fraud">UPI / Online Payment Fraud</option>
+                  <option value="Online Banking Fraud">Online Banking Fraud</option>
+                  <option value="Phishing">Phishing / Fake Link</option>
+                  <option value="Account Hacking">Account Hacking</option>
+                  <option value="Identity Theft">Identity Theft</option>
+                  <option value="Unauthorized Transaction">Unauthorized Transaction</option>
+                  <option value="Other Cyber Crime">Other Cyber Crime</option>
                 </>
               )}
-
-              {/* EMPLOYMENT */}
-
               {isEmployment && (
                 <>
-                  <option value="Unpaid Salary">
-                    Unpaid Salary
-                  </option>
-
-                  <option value="Wrongful Termination">
-                    Wrongful Termination
-                  </option>
-
-                  <option value="Workplace Harassment">
-                    Workplace Harassment
-                  </option>
-
-                  <option value="Employment Dispute">
-                    Employment Dispute
-                  </option>
+                  <option value="Unpaid Salary">Unpaid Salary</option>
+                  <option value="Wrongful Termination">Wrongful Termination</option>
+                  <option value="Workplace Harassment">Workplace Harassment</option>
+                  <option value="Employment Dispute">Employment Dispute</option>
                 </>
               )}
-
-              {/* CONTRACT */}
-
               {isContract && (
                 <>
-                  <option value="Breach of Contract">
-                    Breach of Contract
-                  </option>
-
-                  <option value="Non Payment">
-                    Non-Payment
-                  </option>
-
-                  <option value="Contractual Dispute">
-                    Contractual Dispute
-                  </option>
-
-                  <option value="Service Agreement Dispute">
-                    Service Agreement Dispute
-                  </option>
+                  <option value="Breach of Contract">Breach of Contract</option>
+                  <option value="Non Payment">Non-Payment</option>
+                  <option value="Contractual Dispute">Contractual Dispute</option>
+                  <option value="Service Agreement Dispute">Service Agreement Dispute</option>
                 </>
               )}
-
-              {/* MOTOR VEHICLE */}
-
-              {formData.domain ===
-                "Motor Vehicle / Road Accident" && (
+              {formData.domain === "Motor Vehicle / Road Accident" && (
                 <>
-                  <option value="Road Accident">
-                    Road Accident
-                  </option>
-
-                  <option value="Vehicle Damage">
-                    Vehicle Damage
-                  </option>
-
-                  <option value="Insurance Claim">
-                    Insurance Claim
-                  </option>
-
-                  <option value="Traffic Dispute">
-                    Traffic Dispute
-                  </option>
+                  <option value="Road Accident">Road Accident</option>
+                  <option value="Vehicle Damage">Vehicle Damage</option>
+                  <option value="Insurance Claim">Insurance Claim</option>
+                  <option value="Traffic Dispute">Traffic Dispute</option>
                 </>
               )}
-
-              {/* OTHER */}
-
               {formData.domain === "Other" && (
-                <>
-                  <option value="General Legal Issue">
-                    General Legal Issue
-                  </option>
-                </>
+                <option value="General Legal Issue">General Legal Issue</option>
               )}
-
             </select>
-
           </div>
+        </div>
 
-        )}
-
-        {/* =====================================================
-            CONSUMER FIELDS
-        ====================================================== */}
-
+        {/* Consumer Dynamic Fields */}
         {isConsumer && (
-
-          <>
-            {/* PRODUCT */}
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100">
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaShoppingCart />
-
-                Product / Service
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <ShoppingBag className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Product / Service Name</span>
               </label>
-
               <input
                 type="text"
                 name="product"
                 value={formData.product}
                 onChange={handleChange}
-                placeholder="Example: Mobile Phone"
-                className="w-full border rounded-xl p-4"
+                placeholder="e.g. Mobile Phone"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
 
-            {/* SELLER */}
-
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaStore />
-
-                Seller / Company
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <Store className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Seller / Company</span>
               </label>
-
               <input
                 type="text"
                 name="seller"
                 value={formData.seller}
                 onChange={handleChange}
-                placeholder="Example: Amazon"
-                className="w-full border rounded-xl p-4"
+                placeholder="e.g. Amazon / E-store"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
 
-            {/* PURCHASE DATE */}
-
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaCalendarAlt />
-
-                Purchase Date
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Purchase Date</span>
               </label>
-
               <input
                 type="date"
                 name="purchase_date"
                 value={formData.purchase_date}
                 onChange={handleChange}
-                className="w-full border rounded-xl p-4"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
-          </>
-
+          </div>
         )}
 
-        {/* =====================================================
-            CYBER / IT FIELDS
-        ====================================================== */}
-
+        {/* Cyber Dynamic Fields */}
         {isCyber && (
-
-          <>
-
-            {/* BANK / PLATFORM */}
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-purple-50/40 p-4 rounded-2xl border border-purple-100">
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaUniversity />
-
-                Bank / Payment Platform
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <Landmark className="w-3.5 h-3.5 text-purple-600" />
+                <span>Bank / Payment Platform</span>
               </label>
-
               <input
                 type="text"
                 name="bank"
                 value={formData.bank}
                 onChange={handleChange}
-                placeholder="Example: SBI, HDFC, Google Pay, PhonePe"
-                className="w-full border rounded-xl p-4"
+                placeholder="e.g. SBI, HDFC, Google Pay"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
 
-            {/* TRANSACTION DATE */}
-
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaCalendarAlt />
-
-                Transaction Date
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <Calendar className="w-3.5 h-3.5 text-purple-600" />
+                <span>Transaction Date</span>
               </label>
-
               <input
                 type="date"
                 name="transaction_date"
                 value={formData.transaction_date}
                 onChange={handleChange}
-                className="w-full border rounded-xl p-4"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
 
-            {/* AMOUNT */}
-
             <div>
-
-              <label className="font-semibold flex items-center gap-2 mb-2">
-
-                <FaMoneyBillWave />
-
-                Amount Involved
-
+              <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+                <DollarSign className="w-3.5 h-3.5 text-purple-600" />
+                <span>Amount Involved (₹)</span>
               </label>
-
               <input
                 type="number"
                 name="amount"
                 value={formData.amount}
                 onChange={handleChange}
-                placeholder="Example: 20000"
+                placeholder="e.g. 20000"
                 min="0"
-                className="w-full border rounded-xl p-4"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:border-indigo-500 transition"
               />
-
             </div>
-
-          </>
-
+          </div>
         )}
 
-        {/* =====================================================
-            GENERAL DESCRIPTION
-        ====================================================== */}
+        {/* Problem Description & Desired Remedy */}
+        <div className="space-y-4">
+          <div>
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <Edit3 className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Describe Problem & Facts</span>
+            </label>
+            <textarea
+              rows={5}
+              name="problem"
+              value={formData.problem}
+              onChange={handleChange}
+              placeholder={
+                isCyber
+                  ? "Describe how the fraud occurred, transaction IDs, whether bank was informed within 3 days..."
+                  : "Describe your problem in detail, including dates, defective behavior, and communications..."
+              }
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition resize-y"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Minimum 20 characters required. Include clear timelines for evidence consistency scoring.
+            </p>
+          </div>
 
-        <div>
-
-          <label className="font-semibold flex items-center gap-2 mb-2">
-
-            <FaPen />
-
-            Describe Your Problem
-
-          </label>
-
-          <textarea
-            rows="6"
-            name="problem"
-            value={formData.problem}
-            onChange={handleChange}
-            placeholder={
-              isCyber
-                ? "Example: Someone accessed my bank account through UPI and transferred ₹20,000 without my permission..."
-                : "Describe your issue in detail..."
-            }
-            className="w-full border rounded-xl p-4 resize-none"
-          />
-
-          <p className="text-sm text-slate-500 mt-2">
-            Minimum 20 characters required.
-          </p>
-
+          <div>
+            <label className="font-semibold text-xs text-slate-700 flex items-center gap-1.5 mb-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Desired Remedy</span>
+            </label>
+            <select
+              name="remedy"
+              value={formData.remedy}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 outline-none focus:bg-white focus:border-indigo-500 transition"
+            >
+              <option value="Refund">Refund of Amount</option>
+              <option value="Replacement">Product Replacement</option>
+              <option value="Compensation">Compensation for Damages</option>
+              <option value="Repair">Free Repair / Service</option>
+              <option value="Other">Other Relief</option>
+            </select>
+          </div>
         </div>
 
-        {/* =====================================================
-            REMEDY
-        ====================================================== */}
-
-        <div>
-
-          <label className="font-semibold mb-4 block">
-
-            Desired Remedy
-
-          </label>
-
-          <select
-            name="remedy"
-            value={formData.remedy}
-            onChange={handleChange}
-            className="w-full border rounded-xl p-4"
-          >
-
-            <option value="Refund">
-              Refund
-            </option>
-
-            <option value="Replacement">
-              Replacement
-            </option>
-
-            <option value="Compensation">
-              Compensation
-            </option>
-
-            <option value="Repair">
-              Repair
-            </option>
-
-            <option value="Other">
-              Other
-            </option>
-
-          </select>
-
-        </div>
-        {/* =====================================================
-            SUPPORTING EVIDENCE
-        ====================================================== */}
-
+        {/* Supporting Evidence Uploader */}
         {!complaintGenerated && (
-          <EvidenceUploader
-            onEvidenceChange={setEvidence}
-            onSkip={() => setEvidence([])}
-          />
+          <div className="pt-4 border-t border-slate-100">
+            <EvidenceUploader
+              onEvidenceChange={setEvidence}
+              onSkip={() => setEvidence([])}
+            />
+          </div>
         )}
 
-        {/* =====================================================
-            BUTTON
-        ====================================================== */}
-
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-slate-700">
-          <strong>Complaint Draft:</strong> The system uses the retrieved
-          legal provisions and the facts you provide to create a reviewable
-          draft. It is not a final legal document or legal advice.
+        {/* Disclaimer Notice */}
+        <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs text-slate-600 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+          <span>The system uses retrieved legal provisions and case details to generate a reviewable draft. Review before formal filing.</span>
         </div>
 
+        {/* Submit Action Button */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-gradient-to-r from-blue-900 to-indigo-700 hover:from-blue-800 hover:to-indigo-600 text-white py-4 rounded-xl font-semibold shadow-lg disabled:opacity-60"
+          className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-sm py-4 rounded-xl shadow-xs transition-all duration-200"
         >
-
-          {loading
-            ? "Generating Complaint Draft..."
-            : "Generate Complaint Draft"}
-
+          <Send className="w-4 h-4" />
+          {loading ? "Generating Formal Complaint Draft..." : "Generate Formal Complaint Draft"}
         </button>
-
       </div>
-
     </div>
   );
 }
